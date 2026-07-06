@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Oinklytics POS — Complete Unified System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { primary: '#e11d48', secondary: '#4f46e5', accent: '#f59e0b' } } } }
+    </script>
+    <style>
+        :root { --bg-main: #f3f4f6; --bg-card: #ffffff; --text-main: #1f2937; --text-muted: #6b7280; --border-color: #e5e7eb; }
+        .dark { --bg-main: #020617; --bg-card: #0f172a; --text-main: #f3f4f6; --text-muted: #9ca3af; --border-color: #1e293b; }
+        body { background-color: var(--bg-main); color: var(--text-main); -webkit-tap-highlight-color: transparent; }
+        .bg-card { background-color: var(--bg-card); } .text-muted { color: var(--text-muted); } .border-theme { border-color: var(--border-color); }
+        input, select, textarea { font-size: 16px !important; }
+        button, .nav-btn { min-height: 44px; display: flex; align-items: center; } .nav-btn { justify-content: flex-start; }
+        @media print { body * { visibility: hidden; } #printable-receipt, #printable-receipt * { visibility: visible; } #printable-receipt { position: absolute; left: 0; top: 0; width: 80mm; padding: 5mm; } .no-print { display: none !important; } }
+        .scrollbar-hide::-webkit-scrollbar { display: none; } .fade-in { animation: fadeIn 0.3s ease-in-out; } @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .typing-indicator span { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); animation: typing 1.4s infinite; margin: 0 2px; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; } .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-10px); } }
+
+        .payment-btn { transition: all 0.2s; }
+        .payment-btn.active { ring: 2px; ring-offset: 2px; transform: scale(1.02); }
+    </style>
+</head>
+<body class="transition-colors duration-300 font-sans antialiased overflow-hidden">
+
+    <!-- SESSION WARNING -->
+    <div id="session-warning" class="hidden fixed top-0 left-0 right-0 z-[70] bg-yellow-500 text-black text-center py-2 font-bold text-sm no-print">
+        ⚠️ Session expires in 2 min — <button onclick="resetSessionTimer()" class="underline font-bold ml-2">Stay signed in</button>
+    </div>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-rose-500 to-indigo-600 dark:from-rose-900 dark:to-indigo-950 p-4">
+        <div class="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-md fade-in relative">
+            <button onclick="toggleTheme()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                <i class="fas fa-moon dark:hidden"></i><i class="fas fa-sun hidden dark:block text-yellow-400"></i>
+            </button>
+            <div class="text-center mb-6"><div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary text-white text-3xl mb-4">🥩</div><h1 class="text-2xl font-bold text-gray-900 dark:text-white">Oinklytics POS</h1><p class="text-sm text-gray-500">Meat Management System</p></div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Role</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="flex items-center justify-center gap-2 p-2 rounded-lg border dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"><input type="radio" name="login-role" value="admin" class="w-4 h-4 text-primary" checked> <span class="text-sm">Admin</span></label>
+                        <label class="flex items-center justify-center gap-2 p-2 rounded-lg border dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"><input type="radio" name="login-role" value="supervisor" class="w-4 h-4 text-primary"> <span class="text-sm">Supervisor</span></label>
+                        <label class="flex items-center justify-center gap-2 p-2 rounded-lg border dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"><input type="radio" name="login-role" value="cashier" class="w-4 h-4 text-primary"> <span class="text-sm">Cashier</span></label>
+                    </div>
+                </div>
+                <div><label class="block text-sm font-medium mb-1">Username</label><input type="text" id="login-user" class="w-full px-4 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600" placeholder="admin"></div>
+                <div><label class="block text-sm font-medium mb-1">Password</label><div class="relative"><input type="password" id="login-pass" class="w-full px-4 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600" placeholder="••••••••"><button onclick="togglePassword()" class="absolute right-3 top-3 text-gray-500"><i class="fas fa-eye" id="pass-eye"></i></button></div></div>
+                <div id="login-error" class="hidden text-red-500 text-sm text-center p-2 bg-red-50 dark:bg-red-900/20 rounded"></div>
+                <button onclick="handleLogin()" class="w-full py-3 bg-primary hover:bg-rose-700 text-white font-bold rounded-lg justify-center">🔐 Sign In</button>
+                
+                <div class="border-t border-theme pt-4 mt-4">
+                    <p class="text-xs text-center text-muted mb-2">— Quick Login —</p>
+                    <div class="grid grid-cols-3 gap-2 text-xs text-center">
+                        <button onclick="quickLogin('admin','admin123','admin')" class="p-2 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200">⚙️ Admin<br><span class="text-gray-500">admin123</span></button>
+                        <button onclick="quickLogin('supervisor','sup123','supervisor')" class="p-2 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200">👔 Supervisor<br><span class="text-gray-500">sup123</span></button>
+                        <button onclick="quickLogin('cashier1','cash123','cashier')" class="p-2 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200">🛒 Cashier<br><span class="text-gray-500">cash123</span></button>
+                    </div>
+                </div>
+            </div>
+            <p class="text-xs text-center mt-4 text-gray-500">🔒 All data is encrypted in transit.</p>
+        </div>
+    </div>
+
+    <!-- MAIN APP LAYOUT -->
+    <div id="app-layout" class="hidden flex h-screen overflow-hidden">
+        <aside class="w-64 bg-card border-r border-theme flex-col hidden md:flex no-print">
+            <div class="p-4 border-b border-theme flex items-center gap-3 min-h-[64px]"><div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white text-xl">🥩</div><div><h1 class="font-bold text-lg">Oinklytics POS</h1><p class="text-xs text-muted">Secured 🔐</p></div></div>
+            <nav class="flex-1 overflow-y-auto p-4 space-y-1" id="sidebar-nav"></nav>
+            <div class="p-4 border-t border-theme"><button onclick="doLogout()" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition text-sm font-medium"><i class="fas fa-sign-out-alt w-5 text-center"></i> Sign Out</button></div>
+        </aside>
+
+        <main class="flex-1 flex flex-col overflow-hidden w-full">
+            <header class="bg-card border-b border-theme p-4 flex justify-between items-center no-print min-h-[64px]">
+                <h2 id="page-title" class="text-xl font-bold truncate">Dashboard</h2>
+                <div class="flex items-center gap-4">
+                    <div class="relative">
+                        <button onclick="toggleNotifications()" class="relative p-2 text-muted hover:text-primary transition"><i class="fas fa-bell text-xl"></i><span id="notif-badge" class="absolute top-0 right-0 w-5 h-5 bg-primary text-white text-xs rounded-full flex items-center justify-center">3</span></button>
+                        <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-card border border-theme rounded-xl shadow-xl z-50 fade-in">
+                            <div class="p-3 border-b border-theme font-bold flex justify-between items-center"><span>🔔 Notifications</span><button onclick="clearNotifications()" class="text-xs text-primary hover:underline">Clear All</button></div>
+                            <div id="notif-list" class="max-h-64 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-white font-bold" id="user-avatar">A</div><div class="text-sm hidden sm:block"><p class="font-bold" id="user-name">Admin</p><p class="text-xs text-muted" id="user-role">Administrator</p></div></div>
+                </div>
+            </header>
+            <div class="flex-1 overflow-y-auto p-4 md:p-6" id="main-content"></div>
+        </main>
+    </div>
+    <div id="modals-container"></div>
+
+    <script>
+        // ==========================================
+        // STATE & CONFIGURATION
+        // ==========================================
+        const STATE = {
+            currentUser: null, cart: [], sessionTimer: null, warningTimer: null,
+            paymentMethod: 'cash',
+            mpesaRef: '',
+            cashAmount: 0,
+            mpesaAmount: 0,
+            selectedCustomer: null,
+            theme: localStorage.getItem('oinklytics-theme') || 'dark',
+            users: [
+                { id: 1, name: 'Jimmy Otina', username: 'admin', password: 'admin123', role: 'admin', status: 'Active', lastLogin: 'Today 08:00 AM' },
+                { id: 2, name: 'Jane Cashier', username: 'cashier1', password: 'cash123', role: 'cashier', status: 'Active', lastLogin: 'Today 07:30 AM' },
+                { id: 3, name: 'John Supervisor', username: 'supervisor', password: 'sup123', role: 'supervisor', status: 'Active', lastLogin: 'Today 07:45 AM' }
+            ],
+            products: [
+                { code: 'P001', name: 'Pork Chops', category: 'Pork Cuts', unit: 'kg', price: 550, status: 'Active', stock: 55 },
+                { code: 'P002', name: 'Pork Ribs', category: 'Pork Cuts', unit: 'kg', price: 600, status: 'Active', stock: 35 },
+                { code: 'P003', name: 'Pork Belly', category: 'Pork Cuts', unit: 'kg', price: 450, status: 'Active', stock: 8 },
+                { code: 'P004', name: 'Pork Shoulder', category: 'Pork Cuts', unit: 'kg', price: 400, status: 'Active', stock: 30 },
+                { code: 'P005', name: 'Pork Leg (Ham)', category: 'Pork Cuts', unit: 'kg', price: 480, status: 'Active', stock: 25 },
+                { code: 'P006', name: 'Bones / Offcuts', category: 'By-Products', unit: 'kg', price: 150, status: 'Active', stock: 10 },
+                { code: 'P007', name: 'Liver', category: 'Offal', unit: 'kg', price: 300, status: 'Active', stock: 5 },
+                { code: 'P008', name: 'Intestines', category: 'Offal', unit: 'kg', price: 250, status: 'Active', stock: 5 },
+                { code: 'P009', name: 'Kidneys', category: 'Offal', unit: 'kg', price: 280, status: 'Active', stock: 8 },
+                { code: 'P010', name: 'Pork Sausages', category: 'Processed', unit: 'pack', price: 250, status: 'Active', stock: 12 },
+                { code: 'P011', name: 'Minced Meat', category: 'Processed', unit: 'kg', price: 400, status: 'Active', stock: 18 }
+            ],
+            batches: [
+                { id: 'OIN-20231024-001', source: 'Oinklytics Farms', weight: 120, currentWeight: 85, useBy: '2023-10-30', status: 'Active', costPerKg: 350, inspection: 'Accepted', receivedBy: 'J. Otina', docRef: 'INV-001', 
+                  cutProducts: [
+                      { name: 'Pork Chops', weight: 40, category: 'Pork Cuts' }, 
+                      { name: 'Pork Ribs', weight: 25, category: 'Pork Cuts' }, 
+                      { name: 'Pork Belly', weight: 20, category: 'Pork Cuts' }, 
+                      { name: 'Bones/Offcuts', weight: 10, category: 'By-Products' }
+                  ] 
+                },
+                { id: 'EXT-KCMEAT-20231024-002', source: 'KC Meat Supplies', weight: 85, currentWeight: 40, useBy: '2023-10-26', status: 'Expiring', costPerKg: 380, inspection: 'Partially Accepted', receivedBy: 'J. Smith', docRef: 'PO-045', 
+                  cutProducts: [
+                      { name: 'Pork Shoulder', weight: 30, category: 'Pork Cuts' }, 
+                      { name: 'Pork Leg', weight: 25, category: 'Pork Cuts' }, 
+                      { name: 'Liver', weight: 5, category: 'Offal' }, 
+                      { name: 'Intestines', weight: 5, category: 'Offal' }
+                  ] 
+                }
+            ],
+            customers: [
+                { id: 1, name: 'John Doe', phone: '0712345678', type: 'Retail', area: 'Westlands', birthday: 'March', preferred: 'Pork Chops', points: 450, spent: 45000, consent: true, registered: '2023-09-15', lastVisit: 'Today' },
+                { id: 2, name: 'Jane Smith', phone: '0798765432', type: 'Restaurant', area: 'Kilimani', birthday: 'July', preferred: 'Pork Ribs, Belly', points: 1200, spent: 120000, consent: true, registered: '2023-08-01', lastVisit: 'Yesterday' },
+                { id: 3, name: 'Mike Johnson', phone: '0723456789', type: 'Reseller', area: 'Eastleigh', birthday: 'January', preferred: 'Minced Meat', points: 890, spent: 89000, consent: true, registered: '2023-07-20', lastVisit: '2 days ago' }
+            ],
+            notifications: [
+                { id: 1, type: 'expiry', icon: 'fa-clock', color: 'text-red-500', msg: 'Batch EXT-002 (Pork Belly) expires in 4 hours', time: '10:00 AM' },
+                { id: 2, type: 'temp', icon: 'fa-thermometer-half', color: 'text-orange-500', msg: 'Upright Chiller temp is 5.2°C (Threshold: 4°C)', time: '09:30 AM' },
+                { id: 3, type: 'stock', icon: 'fa-box-open', color: 'text-yellow-500', msg: 'Low stock: Pork Sausages (12 packs left)', time: '08:15 AM' }
+            ],
+            equipment: [],
+            auditLog: [
+                { time: '2023-10-24 08:00', user: 'admin', role: 'Admin', action: 'Login', desc: 'User logged in', ip: '192.168.1.10' },
+                { time: '2023-10-24 08:05', user: 'admin', role: 'Admin', action: 'Stock Change', desc: 'Received batch OIN-001: 120kg', ip: '192.168.1.10' },
+                { time: '2023-10-24 09:12', user: 'cashier1', role: 'Cashier', action: 'Sale', desc: 'Receipt RCP-001: KES 1,200', ip: '192.168.1.15' },
+                { time: '2023-10-24 10:30', user: 'supervisor', role: 'Supervisor', action: 'Discount', desc: 'Approved 15% discount for John Doe', ip: '192.168.1.12' }
+            ],
+            todaySales: { total: 48250, transactions: 37, avgTicket: 1304, cashSales: 28150, mpesaSales: 20100, yesterdayTotal: 43080, lastWeekAvg: 41500,
+                byProduct: [{ name: 'Pork Chops', qty: 15, revenue: 8250 }, { name: 'Pork Ribs', qty: 12, revenue: 7200 }, { name: 'Pork Belly', qty: 10, revenue: 4500 }, { name: 'Pork Sausages', qty: 8, revenue: 2000 }, { name: 'Minced Meat', qty: 12, revenue: 4800 }] },
+            wastage: { today: 3.2, todayValue: 2560, byReason: [{ reason: 'Expired', qty: 1.5, value: 1200 }, { reason: 'Quality Failure', qty: 1.0, value: 800 }], byProduct: [{ name: 'Liver', qty: 1.5 }, { name: 'Intestines', qty: 1.0 }] },
+            shift: { id: 'SHF-001', period: 'Morning', expectedCash: 28150, actualCash: null, mpesaTotal: 20100, variance: 0, transactions: 37, closed: false },
+            settings: { businessName: 'Oinklytics Butchery', currency: 'KES', lowStockThreshold: 10, expiryWarningDays: 3, freezerMaxTemp: -15, chillerMaxTemp: 4, earnRate: 100, pointValue: 1, minRedeem: 100, maxRedeemPct: 20, pointsExpiry: 12, mpesaMode: 'Manual', darajaShortcode: '', etimsMode: 'Manual' },
+
+        };
+
+        // ==========================================
+        // NAVIGATION - CASHIER CANNOT SEE DASHBOARD
+        // ==========================================
+        const NAV_ITEMS = [
+            { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-line', roles: ['admin', 'supervisor'] },
+            { id: 'pos', label: 'POS / Checkout', icon: 'fa-cash-register', roles: ['admin', 'supervisor', 'cashier'] },
+            { id: 'products', label: 'Products', icon: 'fa-box', roles: ['admin', 'supervisor'] },
+            { id: 'batches', label: 'Batches & Cutting', icon: 'fa-truck-loading', roles: ['admin', 'supervisor'] },
+            { id: 'inventory', label: 'Inventory', icon: 'fa-warehouse', roles: ['admin', 'supervisor', 'cashier'] },
+            { id: 'customers', label: 'Customers', icon: 'fa-users', roles: ['admin', 'supervisor', 'cashier'] },
+            { id: 'shift', label: 'Shift Close', icon: 'fa-clock', roles: ['admin', 'supervisor'] },
+            { id: 'reports', label: 'Reports', icon: 'fa-file-alt', roles: ['admin', 'supervisor'] },
+            { id: 'equipment', label: 'Equipment', icon: 'fa-microchip', roles: ['admin', 'supervisor'] },
+            { id: 'audit', label: 'Audit Log', icon: 'fa-shield-alt', roles: ['admin'] },
+            { id: 'settings', label: 'Settings', icon: 'fa-cog', roles: ['admin'] }
+        ];
+
+        // ==========================================
+        // DATABASE LOADING
+        // ==========================================
+        async function loadAllData() {
+            const products = await apiGet('products');
+            if (products) STATE.products = products;
+            const customers = await apiGet('customers');
+            if (customers) STATE.customers = customers;
+            const batches = await apiGet('batches');
+            if (batches) STATE.batches = batches;
+            const users = await apiGet('users');
+            if (users) STATE.users = users;
+            const settings = await apiGet('settings');
+            if (settings) Object.assign(STATE.settings, settings);
+            const notifications = await apiGet('notifications');
+            if (notifications) STATE.notifications = notifications;
+            const categories = await apiGet('categories');
+            if (categories) STATE.categories = categories;
+            const equipment = await apiGet('equipment');
+            if (equipment) STATE.equipment = equipment;
+        }
+
+        // ==========================================
+        // AUTH & SESSION
+        // ==========================================
+        function initTheme() { document.documentElement.classList.toggle('dark', STATE.theme === 'dark'); }
+        function toggleTheme() { STATE.theme = STATE.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('oinklytics-theme', STATE.theme); initTheme(); }
+        function togglePassword() { const i = document.getElementById('login-pass'); const ic = document.getElementById('pass-eye'); if(i.type==='password'){i.type='text';ic.classList.replace('fa-eye','fa-eye-slash');}else{i.type='password';ic.classList.replace('fa-eye-slash','fa-eye');} }
+        function quickLogin(u, p, r) { document.getElementById('login-user').value = u; document.getElementById('login-pass').value = p; document.querySelector(`input[name="login-role"][value="${r}"]`).checked = true; }
+        
+        async function handleLogin() {
+            const username = document.getElementById('login-user').value.trim().toLowerCase();
+            const password = document.getElementById('login-pass').value;
+            const role = document.querySelector('input[name="login-role"]:checked').value;
+            const result = await apiPost('login', { username, password, role });
+            if (result && result.success) {
+                finalizeLogin(result.user);
+            } else { document.getElementById('login-error').innerText = result?.error || 'Invalid credentials.'; document.getElementById('login-error').classList.remove('hidden'); }
+        }
+        
+        async function finalizeLogin(user) {
+            STATE.currentUser = user; user.lastLogin = 'Just now';
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-layout').classList.remove('hidden'); document.getElementById('app-layout').classList.add('flex');
+            document.getElementById('user-name').innerText = user.name; document.getElementById('user-role').innerText = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+            document.getElementById('user-avatar').innerText = user.name.charAt(0).toUpperCase();
+            renderSidebar();
+            // Load all data from database
+            await loadAllData();
+            // CASHIER GOES DIRECTLY TO POS, NOT DASHBOARD
+            navigateTo(user.role === 'cashier' ? 'pos' : 'dashboard'); 
+            startSessionTimer();
+        }
+        function doLogout() {
+            STATE.currentUser = null; STATE.cart = []; STATE.selectedCustomer = null;
+            clearTimeout(STATE.sessionTimer); clearTimeout(STATE.warningTimer);
+            document.getElementById('session-warning').classList.add('hidden');
+            document.getElementById('app-layout').classList.add('hidden'); document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('login-pass').value = '';
+        }
+        function withAdminPin(callback) {
+            if (STATE.currentUser?.role === 'admin') { callback(); return; }
+            document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-sm border border-theme"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">Admin PIN Required</h3><button onclick="closeModal()" class="text-muted w-10 h-10 justify-center"><i class="fas fa-times"></i></button></div><p class="text-sm text-muted mb-4">Enter admin password to authorize this action.</p><input type="password" id="admin-pin-input" placeholder="Admin password..." class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none mb-2"><p id="admin-pin-error" class="text-red-500 text-sm hidden">Incorrect PIN</p><div class="flex gap-2 mt-4"><button onclick="closeModal()" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Cancel</button><button onclick="verifyAdminPin()" class="flex-1 py-3 bg-primary text-white rounded-lg justify-center font-bold">Verify</button></div></div></div>`;
+            STATE._pinCallback = callback;
+        }
+        async function verifyAdminPin() {
+            const pin = document.getElementById('admin-pin-input').value.trim();
+            const res = await apiPost('verify_pin', { password: pin });
+            if (res && res.success) {
+                closeModal();
+                const cb = STATE._pinCallback;
+                delete STATE._pinCallback;
+                if (cb) cb();
+            } else {
+                document.getElementById('admin-pin-error').classList.remove('hidden');
+                document.getElementById('admin-pin-input').value = '';
+                document.getElementById('admin-pin-input').focus();
+            }
+        }
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+        function startSessionTimer() {
+            clearTimeout(STATE.sessionTimer); clearTimeout(STATE.warningTimer);
+            document.getElementById('session-warning').classList.add('hidden');
+            STATE.warningTimer = setTimeout(() => document.getElementById('session-warning').classList.remove('hidden'), 28 * 60 * 1000);
+            STATE.sessionTimer = setTimeout(doLogout, 30 * 60 * 1000);
+        }
+        function resetSessionTimer() { if (STATE.currentUser) startSessionTimer(); }
+        document.addEventListener('click', resetSessionTimer); document.addEventListener('keypress', resetSessionTimer);
+
+        // ==========================================
+        // NAVIGATION & NOTIFICATIONS
+        // ==========================================
+        function renderSidebar() {
+            document.getElementById('sidebar-nav').innerHTML = NAV_ITEMS.filter(i => i.roles.includes(STATE.currentUser.role))
+                .map(i => `<button onclick="navigateTo('${i.id}')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-left text-sm font-medium"><i class="fas ${i.icon} w-5 text-center"></i> <span>${i.label}</span></button>`).join('');
+        }
+        function navigateTo(pageId) {
+            document.getElementById('page-title').innerText = NAV_ITEMS.find(n => n.id === pageId)?.label || pageId;
+            const c = document.getElementById('main-content');
+            if(pageId==='dashboard') renderDashboard(c); else if(pageId==='pos') renderPOS(c); else if(pageId==='products') renderProducts(c); else if(pageId==='batches') renderBatches(c); else if(pageId==='inventory') renderInventory(c); else if(pageId==='customers') renderCustomers(c); else if(pageId==='shift') renderShift(c); else if(pageId==='reports') renderReports(c); else if(pageId==='equipment') renderEquipment(c); else if(pageId==='audit') renderAudit(c); else if(pageId==='settings') renderSettings(c);
+        }
+        function toggleNotifications() { const d = document.getElementById('notif-dropdown'); d.classList.toggle('hidden'); if(!d.classList.contains('hidden')) renderNotifications(); }
+        function renderNotifications() {
+            const list = document.getElementById('notif-list');
+            if(STATE.notifications.length === 0) { list.innerHTML = '<p class="p-4 text-center text-muted text-sm">No new notifications</p>'; return; }
+            list.innerHTML = STATE.notifications.map(n => `<div class="p-3 border-b border-theme hover:bg-gray-50 dark:hover:bg-gray-800 flex gap-3"><i class="fas ${n.icon} ${n.color} mt-1"></i><div class="flex-1"><p class="text-sm font-medium">${n.msg}</p><p class="text-xs text-muted">${n.time}</p></div></div>`).join('');
+        }
+        function clearNotifications() { STATE.notifications = []; renderNotifications(); document.getElementById('notif-badge').classList.add('hidden'); }
+        document.addEventListener('click', (e) => { if (!e.target.closest('.relative')) document.getElementById('notif-dropdown')?.classList.add('hidden'); });
+
+        // ==========================================
+        // PAYMENT METHOD FUNCTIONS
+        // ==========================================
+        function setPaymentMethod(method) {
+            STATE.paymentMethod = method;
+            if (method === 'cash') { STATE.mpesaRef = ''; STATE.mpesaAmount = 0; } 
+            else if (method === 'mpesa') { STATE.cashAmount = 0; } 
+            else if (method === 'mixed') {
+                const total = STATE.cart.reduce((s,i)=>s+(i.price*i.qty),0);
+                STATE.cashAmount = Math.floor(total / 2);
+                STATE.mpesaAmount = total - STATE.cashAmount;
+            }
+            renderPOS(document.getElementById('main-content'));
+        }
+
+        function updateMpesaRef() { const refInput = document.getElementById('mpesa-ref-input'); if (refInput) STATE.mpesaRef = refInput.value.trim(); }
+        function updateCashAmount() { const cashInput = document.getElementById('cash-amount-input'); if (cashInput) { STATE.cashAmount = parseFloat(cashInput.value) || 0; updateMixedPayment(); } }
+        function updateMpesaAmount() { const mpesaInput = document.getElementById('mpesa-amount-input'); if (mpesaInput) { STATE.mpesaAmount = parseFloat(mpesaInput.value) || 0; updateMixedPayment(); } }
+        function updateMixedPayment() {
+            const total = STATE.cart.reduce((s,i)=>s+(i.price*i.qty),0);
+            const remaining = total - STATE.cashAmount - STATE.mpesaAmount;
+            const remainingEl = document.getElementById('mixed-remaining');
+            if (remainingEl) { remainingEl.innerText = `KES ${remaining.toFixed(0)}`; remainingEl.className = remaining === 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'; }
+        }
+
+        // ==========================================
+        // CUSTOMER LOOKUP & ENROLLMENT
+        // ==========================================
+        function openCustomerLookup() {
+            document.getElementById('modals-container').innerHTML = `
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4">
+                <div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-lg border border-theme max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-lg">👤 Select or Register Customer</h3>
+                        <button onclick="closeModal()" class="text-muted w-10 h-10 justify-center"><i class="fas fa-times"></i></button>
+                    </div>
+                    
+                    <!-- Phone Search -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Search by Phone Number</label>
+                        <div class="flex gap-2">
+                            <input type="tel" id="customer-phone-search" placeholder="Enter phone number (e.g., 0712345678)" class="flex-1 px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none">
+                            <button onclick="searchCustomer()" class="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 justify-center font-bold"><i class="fas fa-search"></i></button>
+                        </div>
+                    </div>
+                    
+                    <!-- Search Results -->
+                    <div id="customer-search-results" class="mb-4"></div>
+                    
+                    <!-- Or Register New -->
+                    <div class="border-t border-theme pt-4">
+                        <p class="text-sm text-muted mb-2">New customer? Register below:</p>
+                        <button onclick="openRegisterCustomerModal()" class="w-full py-3 bg-primary text-white rounded-lg hover:bg-rose-700 justify-center font-bold"><i class="fas fa-user-plus mr-2"></i>+ Quick Register</button>
+                    </div>
+                    
+                    <!-- Walk-in Option -->
+                    <div class="mt-4">
+                        <button onclick="selectWalkInCustomer()" class="w-full py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 justify-center"><i class="fas fa-walking mr-2"></i>Continue as Walk-in Guest</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function searchCustomer() {
+            const phone = document.getElementById('customer-phone-search').value.trim();
+            const resultsDiv = document.getElementById('customer-search-results');
+            
+            if (!phone) { resultsDiv.innerHTML = '<p class="text-red-500 text-sm">Please enter a phone number</p>'; return; }
+            
+            const found = STATE.customers.find(c => c.phone.includes(phone));
+            
+            if (found) {
+                resultsDiv.innerHTML = `
+                    <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                        <p class="text-sm font-bold text-green-700 dark:text-green-400 mb-2">✅ Customer Found</p>
+                        <div class="space-y-1 text-sm">
+                            <p><strong>Name:</strong> ${found.name}</p>
+                            <p><strong>Phone:</strong> ${found.phone}</p>
+                            <p><strong>Type:</strong> ${found.type}</p>
+                            <p><strong>Points:</strong> <span class="text-primary font-bold">${found.points} pts</span></p>
+                            <p><strong>Total Spent:</strong> KES ${found.spent.toLocaleString()}</p>
+                        </div>
+                        <button onclick="selectCustomer(${found.id})" class="w-full mt-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 justify-center font-bold">✅ Select This Customer</button>
+                    </div>`;
+            } else {
+                resultsDiv.innerHTML = `
+                    <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                        <p class="text-sm font-bold text-yellow-700 dark:text-yellow-400 mb-2">⚠️ Customer Not Found</p>
+                        <p class="text-sm text-muted mb-3">No customer registered with phone "${phone}".</p>
+                        <button onclick="openRegisterCustomerModal('${phone}')" class="w-full py-2 bg-primary text-white rounded-lg hover:bg-rose-700 justify-center font-bold"><i class="fas fa-user-plus mr-2"></i>Register New Customer</button>
+                    </div>`;
+            }
+        }
+
+        function selectCustomer(id) {
+            STATE.selectedCustomer = STATE.customers.find(c => c.id === id);
+            closeModal();
+            renderPOS(document.getElementById('main-content'));
+        }
+
+        function selectWalkInCustomer() {
+            STATE.selectedCustomer = null;
+            closeModal();
+            renderPOS(document.getElementById('main-content'));
+        }
+
+        function openRegisterCustomerModal(prefillPhone = '') {
+            document.getElementById('modals-container').innerHTML = `
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4">
+                <div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-lg border border-theme max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-lg">Register New Customer</h3>
+                        <button onclick="closeModal()" class="text-muted w-10 h-10 justify-center"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="space-y-4">
+                        <div><label class="block text-sm mb-1">Full Name *</label><input type="text" id="reg-cust-name" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div>
+                        <div><label class="block text-sm mb-1">Phone Number *</label><input type="tel" id="reg-cust-phone" value="${prefillPhone}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-sm mb-1">Customer Type</label><select id="reg-cust-type" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option>Retail</option><option>Restaurant / Hotel</option><option>Reseller / Wholesaler</option><option>Family Buyer</option></select></div>
+                            <div><label class="block text-sm mb-1">Area / Estate</label><input type="text" id="reg-cust-area" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-sm mb-1">Birthday Month</label><select id="reg-cust-bday" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option>— Not provided —</option><option>January</option><option>February</option><option>March</option><option>April</option><option>May</option><option>June</option><option>July</option><option>August</option><option>September</option><option>October</option><option>November</option><option>December</option></select></div>
+                            <div><label class="block text-sm mb-1">Preferred Products</label><input type="text" id="reg-cust-pref" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div>
+                        </div>
+                        
+                        <!-- OTP Simulation -->
+                        <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <p class="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">📱 OTP Verification</p>
+                            <p class="text-xs text-blue-600 dark:text-blue-300">An OTP code will be sent to the customer's phone for verification.</p>
+                            <div class="mt-2 flex gap-2">
+                                <input type="text" id="reg-cust-otp" placeholder="Enter OTP (Demo: 1234)" class="flex-1 px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600 text-sm">
+                                <button onclick="alert('OTP sent! (Demo code: 1234)')" class="px-3 py-2 bg-blue-600 text-white rounded text-sm justify-center">Send OTP</button>
+                            </div>
+                        </div>
+                        
+                        <!-- PRIVACY POLICY CHECKBOX -->
+                        <div class="p-4 bg-gray-50 dark:bg-gray-800 border border-theme rounded-lg">
+                            <p class="text-xs text-muted mb-2 font-bold">📋 Privacy Policy & Data Collection</p>
+                            <p class="text-xs text-muted leading-relaxed mb-3">We collect your information to create your account, provide POS services, process transactions, improve our platform, and communicate important updates.</p>
+                            <label class="flex items-start gap-2 text-sm cursor-pointer">
+                                <input type="checkbox" id="reg-cust-privacy" class="mt-1 w-4 h-4 text-primary rounded flex-shrink-0">
+                                <span>☐ I agree to the Privacy Policy</span>
+                            </label>
+                        </div>
+                        
+                        <!-- Loyalty Opt-in -->
+                        <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                            <label class="flex items-start gap-2 text-sm cursor-pointer">
+                                <input type="checkbox" id="reg-cust-loyalty" class="mt-1 w-4 h-4 text-primary rounded flex-shrink-0" checked>
+                                <span class="text-xs text-green-700 dark:text-green-400">Join Oinklytics Rewards - Earn 1 point per KES 100 spent. Receive reward updates via WhatsApp/SMS. Opt out anytime.</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mt-6">
+                        <button onclick="closeModal()" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Cancel</button>
+                        <button onclick="saveNewCustomer()" class="flex-1 py-3 bg-primary text-white rounded-lg justify-center font-bold">💾 Save & Enroll</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // ==========================================
+        // DATABASE API LAYER
+        // ==========================================
+        const API = '/oinklytics/api/index.php';
+        async function api(method, entity, data, id) {
+            let url = `${API}?entity=${entity}`;
+            if (id) url += `&id=${id}`;
+            if (method === 'GET' && data) url += `&search=${encodeURIComponent(data)}`;
+            const opts = { method, headers: { 'Content-Type': 'application/json' } };
+            if (method !== 'GET') opts.body = JSON.stringify(data);
+            try {
+                const res = await fetch(url, opts);
+                return await res.json();
+            } catch(e) { console.error('API error:', e); return null; }
+        }
+        async function apiGet(entity, search) { return api('GET', entity, search); }
+        async function apiPost(entity, data) { return api('POST', entity, data); }
+        async function apiPut(entity, data, id) { return api('PUT', entity, data, id); }
+        async function apiDel(entity, id) { return api('DELETE', entity, null, id); }
+
+        async function saveProduct() {
+            const code = document.getElementById('prod-code').value.trim();
+            const name = document.getElementById('prod-name').value.trim();
+            const category = document.getElementById('prod-category').value;
+            const unit = document.getElementById('prod-unit').value;
+            const price = document.getElementById('prod-price').value;
+            const status = document.getElementById('prod-status').value;
+            if (!code || !name || !price) { alert('Code, Name, and Price are required.'); return; }
+            const data = { code, name, category, unit, price, status };
+            if (STATE.editingProductCode) {
+                await apiPut('products', data, STATE.editingProductCode);
+            } else {
+                await apiPost('products', data);
+            }
+            closeModal();
+            await loadAllData();
+        }
+
+        async function deleteProduct(code) {
+            if (!confirm(`Delete product "${code}"? This cannot be undone.`)) return;
+            await apiDel('products', code);
+            await loadAllData();
+        }
+
+        function openCategoryModal() {
+            const cats = (STATE.categories||[]).map(c => `<tr><td class="p-3 font-bold">${c.name}</td><td class="p-3"><button onclick="editCategory('${encodeURIComponent(JSON.stringify(c))}')" class="text-blue-500 hover:underline mr-2 text-sm">Edit</button><button onclick="deleteCategory(${c.id})" class="text-red-500 hover:underline text-sm">Delete</button></td></tr>`).join('');
+            document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-lg border border-theme max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">Manage Categories</h3><button onclick="closeModal()" class="text-muted w-10 h-10 justify-center"><i class="fas fa-times"></i></button></div><div class="mb-4 flex gap-2"><input type="text" id="cat-name" placeholder="New category name..." class="flex-1 px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none"><button onclick="saveCategory()" class="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm justify-center whitespace-nowrap"><i class="fas fa-plus mr-1"></i>Add</button></div><div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden"><table class="w-full text-left"><thead class="bg-gray-50 dark:bg-gray-800 text-sm text-muted"><tr><th class="p-3">Category</th><th class="p-3">Actions</th></tr></thead><tbody class="divide-y divide-theme">${cats||'<tr><td class="p-3 text-muted" colspan="2">No categories</td></tr>'}</tbody></table></div></div></div>`;
+        }
+
+        async function saveCategory() {
+            const name = document.getElementById('cat-name').value.trim();
+            if (!name) { alert('Category name is required.'); return; }
+            if (STATE.editingCategoryId) {
+                await apiPut('categories', { name }, STATE.editingCategoryId);
+                delete STATE.editingCategoryId;
+            } else {
+                const res = await apiPost('categories', { name });
+                if (res && res.error) { alert(res.error); return; }
+            }
+            await loadAllData();
+            openCategoryModal();
+        }
+
+        function editCategory(encoded) {
+            const cat = JSON.parse(decodeURIComponent(encoded));
+            STATE.editingCategoryId = cat.id;
+            document.getElementById('cat-name').value = cat.name;
+            document.getElementById('cat-name').focus();
+        }
+
+        async function deleteCategory(id) {
+            const name = (STATE.categories||[]).find(c=>c.id===id)?.name;
+            if (!confirm(`Delete category "${name}"?`)) return;
+            await apiDel('categories', id);
+            delete STATE.editingCategoryId;
+            await loadAllData();
+            openCategoryModal();
+        }
+
+        async function saveNewCustomer() {
+            const name = document.getElementById('reg-cust-name').value.trim();
+            const phone = document.getElementById('reg-cust-phone').value.trim();
+            const otp = document.getElementById('reg-cust-otp').value.trim();
+            const privacy = document.getElementById('reg-cust-privacy').checked;
+            const loyalty = document.getElementById('reg-cust-loyalty').checked;
+            
+            if (!name || !phone) { alert('Please fill in name and phone number'); return; }
+            if (otp !== '1234') { alert('Invalid OTP. Please enter the correct code (Demo: 1234)'); return; }
+            if (!privacy) { alert('You must agree to the Privacy Policy to register'); return; }
+            if (STATE.customers.find(c => c.phone === phone)) { alert('Customer with this phone already exists'); return; }
+            
+            const data = {
+                name, phone,
+                type: document.getElementById('reg-cust-type').value,
+                area: document.getElementById('reg-cust-area').value,
+                birthday: document.getElementById('reg-cust-bday').value,
+                preferred: document.getElementById('reg-cust-pref').value,
+                consent: loyalty ? 1 : 0
+            };
+            const result = await apiPost('customers', data);
+            if (result && result.success) {
+                const newCustomer = { ...data, id: result.id, points: 0, spent: 0, registered: 'Today', lastVisit: 'Today' };
+                STATE.customers.push(newCustomer);
+                STATE.selectedCustomer = newCustomer;
+                alert(`✅ Customer "${name}" registered successfully!`);
+                closeModal();
+                renderPOS(document.getElementById('main-content'));
+            } else { alert('Failed to save customer'); }
+        }
+
+        // ==========================================
+        // ==========================================
+        // ==========================================
+        // PAGE RENDERERS
+        // ==========================================
+        async function renderDashboard(c) {
+            const stats = await apiGet('dashboard');
+            const ts = stats ? stats.todaySales : 0;
+            const tx = stats ? stats.transactions : 0;
+            const ab = stats ? stats.activeBatches : 0;
+            const tc = stats ? stats.totalCustomers : 0;
+            const wt = stats ? stats.wastageToday : 0;
+            c.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 fade-in">
+                <div class="bg-card p-5 rounded-xl shadow-sm border border-theme"><p class="text-sm text-muted">Today's Sales</p><h3 class="text-xl sm:text-2xl font-bold mt-1">KES ${Number(ts).toLocaleString()}</h3></div>
+                <div class="bg-card p-5 rounded-xl shadow-sm border border-theme"><p class="text-sm text-muted">Transactions</p><h3 class="text-xl sm:text-2xl font-bold mt-1">${tx}</h3></div>
+                <div class="bg-card p-5 rounded-xl shadow-sm border border-theme"><p class="text-sm text-muted">Active Batches</p><h3 class="text-xl sm:text-2xl font-bold mt-1">${ab}</h3></div>
+                <div class="bg-card p-5 rounded-xl shadow-sm border border-theme"><p class="text-sm text-muted">Loyalty Members</p><h3 class="text-xl sm:text-2xl font-bold mt-1">${tc}</h3></div>
+                <div class="bg-card p-5 rounded-xl shadow-sm border border-theme"><p class="text-sm text-muted">Wastage Today</p><h3 class="text-xl sm:text-2xl font-bold mt-1">${wt}kg</h3></div>
+                <div class="bg-card p-5 rounded-xl shadow-sm border border-theme"><p class="text-sm text-muted">Cash Variance</p><h3 class="text-xl sm:text-2xl font-bold mt-1 text-green-500">KES 0</h3><p class="text-xs text-green-500 mt-1">✓ Balanced</p></div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in">
+                <div class="lg:col-span-2 bg-card p-5 rounded-xl shadow-sm border border-theme"><h3 class="font-bold mb-4">Sales by Product Today</h3><canvas id="salesChart" height="200"></canvas></div>
+                <div class="bg-card p-5 rounded-xl shadow-sm border border-theme">
+                    <h3 class="font-bold mb-4">⚠️ Alerts & Batch Expiry Watch</h3>
+                    <div class="space-y-3">
+                        ${STATE.batches.filter(b => b.status === 'Expiring').map(b => `<div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"><p class="text-sm font-bold text-red-700 dark:text-red-400">${b.id}</p><p class="text-xs text-muted">${b.source} • Expires ${b.use_by}</p></div>`).join('') || '<p class="text-sm text-muted p-3">No alerts</p>'}
+                    </div>
+                    <h4 class="font-bold mt-4 mb-2 text-sm">Top Customers Today</h4>
+                    <div class="space-y-2">${STATE.customers.slice(0,3).map(c => `<div class="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded"><span class="text-sm font-medium">${c.name}</span><span class="text-xs text-primary font-bold">KES ${(Math.random()*5000+1000).toFixed(0)}</span></div>`).join('')}</div>
+                </div>
+            </div>`;
+            setTimeout(() => { const ctx = document.getElementById('salesChart'); if(ctx) new Chart(ctx.getContext('2d'), { type: 'bar', data: { labels: ['Chops', 'Ribs', 'Belly', 'Sausages', 'Minced'], datasets: [{ label: 'Sales (KES)', data: [15000, 12000, 8000, 6000, 5000], backgroundColor: '#e11d48', borderRadius: 4 }] }, options: { responsive: true, plugins: { legend: { display: false } } } }); }, 100);
+        }
+
+        function renderPOS(c) {
+            const total = STATE.cart.reduce((s,i)=>s+(i.price*i.qty),0);
+            const isCash = STATE.paymentMethod === 'cash';
+            const isMpesa = STATE.paymentMethod === 'mpesa';
+            const isMixed = STATE.paymentMethod === 'mixed';
+            
+            c.innerHTML = `<div class="flex flex-col lg:flex-row gap-4 h-full fade-in">
+                <div class="flex-1 flex flex-col"><div class="bg-card p-4 rounded-xl shadow-sm border border-theme mb-4">
+                    ${(()=>{const o=STATE.categories?.map(c=>`<option>${c.name}</option>`).join('')||'';return `<div class="flex flex-col sm:flex-row gap-2 mb-4"><input type="text" placeholder="Search products..." class="flex-1 px-4 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none"><select class="px-4 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none"><option>All Categories</option>${o}</select></div>`;})()}
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" id="pos-product-grid"></div>
+                </div></div>
+                <div class="w-full lg:w-96 bg-card p-4 rounded-xl shadow-sm border border-theme flex flex-col">
+                    <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i class="fas fa-shopping-cart text-primary"></i> Cart</h3>
+                    
+                    <!-- CUSTOMER DISPLAY -->
+                    <div class="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-user text-primary"></i>
+                            <div>
+                                <p class="text-sm font-bold">${STATE.selectedCustomer ? STATE.selectedCustomer.name : 'Walk-in Guest'}</p>
+                                <p class="text-xs text-muted">${STATE.selectedCustomer ? STATE.selectedCustomer.phone + ' • ' + STATE.selectedCustomer.points + ' pts' : 'No customer selected'}</p>
+                            </div>
+                        </div>
+                        <button onclick="openCustomerLookup()" class="text-xs text-primary hover:underline font-bold">👤 Change</button>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto space-y-2 mb-4 min-h-[150px] max-h-[40vh] lg:max-h-none" id="cart-items"><p class="text-center text-muted py-8">Cart is empty</p></div>
+                    <div class="border-t border-theme pt-4 space-y-2">
+                        <div class="flex justify-between text-sm"><span>Subtotal</span><span id="cart-subtotal">KES ${total}</span></div>
+                        <div class="flex justify-between text-sm items-center"><span>Discount</span><div class="flex items-center gap-1"><input type="number" id="cart-discount-pct" value="0" min="0" max="20" onchange="applyDiscount()" class="w-16 px-2 py-1 rounded border dark:bg-gray-700 dark:border-gray-600 text-right text-sm"> <span class="text-xs text-muted">%</span></div></div>
+                        <div class="flex justify-between text-sm"><span>Discount Amount</span><span id="cart-discount-amt">- KES 0</span></div>
+                        <div class="flex justify-between font-bold text-lg"><span>Total</span><span id="cart-total">KES ${total}</span></div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <p class="text-xs text-muted mb-2 font-bold">Payment Method</p>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="setPaymentMethod('cash')" class="payment-btn py-2 ${isCash ? 'bg-green-600 ring-2 ring-green-400' : 'bg-green-600/50'} text-white rounded-lg text-xs justify-center hover:bg-green-700">💵 Cash</button>
+                            <button onclick="setPaymentMethod('mpesa')" class="payment-btn py-2 ${isMpesa ? 'bg-green-500 ring-2 ring-green-400' : 'bg-green-500/50'} text-white rounded-lg text-xs justify-center hover:bg-green-600">📱 M-Pesa</button>
+                            <button onclick="setPaymentMethod('mixed')" class="payment-btn py-2 ${isMixed ? 'bg-blue-600 ring-2 ring-blue-400' : 'bg-blue-600/50'} text-white rounded-lg text-xs justify-center hover:bg-blue-700 col-span-3">💳 Mixed (Cash + M-Pesa)</button>
+                        </div>
+                    </div>
+                    
+                    ${isMpesa || isMixed ? `<div class="mt-3"><label class="block text-xs text-muted mb-1">M-Pesa Reference Number</label><input type="text" id="mpesa-ref-input" value="${STATE.mpesaRef}" oninput="updateMpesaRef()" placeholder="e.g., RJK7H8J9K0" class="w-full px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none text-sm"></div>` : ''}
+                    
+                    ${isMixed ? `<div class="mt-3 space-y-2"><div class="grid grid-cols-2 gap-2"><div><label class="block text-xs text-muted mb-1">Cash Amount</label><input type="number" id="cash-amount-input" value="${STATE.cashAmount}" oninput="updateCashAmount()" class="w-full px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none text-sm"></div><div><label class="block text-xs text-muted mb-1">M-Pesa Amount</label><input type="number" id="mpesa-amount-input" value="${STATE.mpesaAmount}" oninput="updateMpesaAmount()" class="w-full px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none text-sm"></div></div><div class="flex justify-between text-xs"><span class="text-muted">Remaining:</span><span id="mixed-remaining" class="${total - STATE.cashAmount - STATE.mpesaAmount === 0 ? 'text-green-600' : 'text-red-600'} font-bold">KES ${(total - STATE.cashAmount - STATE.mpesaAmount).toFixed(0)}</span></div></div>` : ''}
+                    
+                    <p class="text-xs text-muted text-center mt-2">📱 STK Push available after go-live with Daraja API</p>
+                    <button onclick="openCheckoutModal()" class="w-full py-3 bg-primary text-white font-bold rounded-lg mt-3 hover:bg-rose-700 justify-center">💳 Checkout</button>
+                    <button onclick="if(STATE.cart.length>0 && confirm('Clear cart?')){STATE.cart=[]; STATE.paymentMethod='cash'; STATE.mpesaRef=''; STATE.cashAmount=0; STATE.mpesaAmount=0; STATE.selectedCustomer=null; renderCart();}" class="w-full py-3 text-red-500 text-sm mt-1 hover:underline justify-center">🗑 Clear Cart</button>
+                </div>
+            </div>`;
+            renderPOSProducts(); renderCart();
+        }
+        function renderPOSProducts() { const g = document.getElementById('pos-product-grid'); if(!g) return; g.innerHTML = STATE.products.map(p => `<div onclick="addToCart('${p.code}')" class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition border border-theme"><div class="w-full h-16 sm:h-20 bg-gradient-to-br from-rose-400 to-rose-600 rounded mb-2 flex items-center justify-center text-2xl">🥩</div><p class="font-bold text-sm truncate">${p.name}</p><p class="text-xs text-muted">${p.category} • ${p.unit}</p><p class="text-primary font-bold mt-1">KES ${p.price}</p></div>`).join(''); }
+        function addToCart(code) { const p = STATE.products.find(x => x.code === code); const e = STATE.cart.find(x => x.code === code); if(e) e.qty++; else STATE.cart.push({...p, qty:1}); renderCart(); }
+        function renderCart() { const c = document.getElementById('cart-items'); if(!c) return; const total = STATE.cart.reduce((s,i)=>s+(i.price*i.qty),0); if(STATE.cart.length===0){c.innerHTML='<p class="text-center text-muted py-8">Cart is empty</p>'; document.getElementById('cart-subtotal').innerText=`KES ${total}`; document.getElementById('cart-total').innerText=`KES ${total}`; return;} c.innerHTML = STATE.cart.map((i,x) => `<div class="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded"><div class="flex-1 truncate pr-2"><p class="font-bold text-sm truncate">${i.name}</p><p class="text-xs text-muted">KES ${i.price} x ${i.qty}</p></div><div class="flex items-center gap-1 flex-shrink-0"><button onclick="changeQty(${x},-1)" class="w-8 h-8 rounded bg-gray-200 dark:bg-gray-700 justify-center">-</button><span class="text-sm font-bold w-6 text-center">${i.qty}</span><button onclick="changeQty(${x},1)" class="w-8 h-8 rounded bg-gray-200 dark:bg-gray-700 justify-center">+</button></div></div>`).join(''); }
+        function changeQty(i,d) { STATE.cart[i].qty+=d; if(STATE.cart[i].qty<=0) STATE.cart.splice(i,1); renderCart(); }
+        function applyDiscount() { const pct = parseFloat(document.getElementById('cart-discount-pct')?.value || 0); const total = STATE.cart.reduce((s,i)=>s+(i.price*i.qty),0); const disc = total * (Math.min(pct, 20) / 100); const amtEl = document.getElementById('cart-discount-amt'); const totEl = document.getElementById('cart-total'); if(amtEl) amtEl.innerText = `- KES ${disc.toFixed(0)}`; if(totEl) totEl.innerText = `KES ${(total - disc).toFixed(0)}`; }
+
+        // ==========================================
+        // CHECKOUT WITH MANDATORY BATCH & CUSTOMER
+        // ==========================================
+        function openCheckoutModal() {
+            if(STATE.cart.length===0) return alert('Cart is empty!'); 
+            
+            // MANDATORY CUSTOMER CHECK
+            if (!STATE.selectedCustomer) {
+                if (!confirm('No customer selected. Continue as Walk-in Guest?')) {
+                    openCustomerLookup();
+                    return;
+                }
+            }
+            
+            const t = STATE.cart.reduce((s,i)=>s+(i.price*i.qty),0);
+            const batchOptions = STATE.batches.filter(b => b.currentWeight > 0).map(b => `<option value="${b.id}">${b.id} (${b.source}) - Remaining: ${b.currentWeight}kg</option>`).join('');
+            
+            let paymentDisplay = '';
+            if (STATE.paymentMethod === 'cash') paymentDisplay = `<div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"><p class="text-sm font-bold text-green-700 dark:text-green-400">💵 Payment: Cash</p></div>`;
+            else if (STATE.paymentMethod === 'mpesa') paymentDisplay = `<div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"><p class="text-sm font-bold text-green-700 dark:text-green-400">📱 Payment: M-Pesa</p><p class="text-xs text-muted mt-1">Reference: ${STATE.mpesaRef || 'Not provided'}</p></div>`;
+            else if (STATE.paymentMethod === 'mixed') paymentDisplay = `<div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg"><p class="text-sm font-bold text-blue-700 dark:text-blue-400">💳 Payment: Mixed</p><p class="text-xs text-muted mt-1">Cash: KES ${STATE.cashAmount} | M-Pesa: KES ${STATE.mpesaAmount}</p><p class="text-xs text-muted">Reference: ${STATE.mpesaRef || 'Not provided'}</p></div>`;
+            
+            const customerDisplay = STATE.selectedCustomer 
+                ? `<div class="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg mb-3"><p class="text-sm font-bold text-purple-700 dark:text-purple-400">👤 Customer: ${STATE.selectedCustomer.name}</p><p class="text-xs text-muted">Phone: ${STATE.selectedCustomer.phone} | Points: ${STATE.selectedCustomer.points} pts</p></div>`
+                : `<div class="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg mb-3"><p class="text-sm font-bold text-gray-700 dark:text-gray-400">🚶 Walk-in Guest</p></div>`;
+            
+            document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-lg border border-theme max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">Complete Sale</h3><button onclick="closeModal()" class="text-muted w-10 h-10 justify-center"><i class="fas fa-times"></i></button></div>
+            
+            ${customerDisplay}
+            
+            <div class="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <label class="block text-sm font-bold mb-1 text-red-700 dark:text-red-400">⚠️ Select Meat Batch (REQUIRED)</label>
+                <select id="checkout-batch" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none focus:ring-2 focus:ring-red-500">
+                    <option value="">-- Select Batch Number --</option>
+                    ${batchOptions}
+                </select>
+                <p class="text-xs text-red-500 mt-1">You cannot checkout without selecting a batch number.</p>
+            </div>
+            
+            ${paymentDisplay}
+            <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg flex justify-between font-bold text-lg mb-4"><span>Total Due:</span><span>KES ${t}</span></div>
+            <div class="flex gap-2"><button onclick="closeModal()" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Cancel</button><button onclick="completeSale(${t})" class="flex-1 py-3 bg-green-600 text-white rounded-lg font-bold justify-center hover:bg-green-700">✅ Confirm Sale</button></div></div></div>`;
+        }
+        
+        async function completeSale(t) {
+            const batchId = document.getElementById('checkout-batch').value;
+            if (!batchId) { alert('⚠️ You MUST select a Batch Number to complete the sale!'); return; }
+            const batch = STATE.batches.find(b => b.id === batchId);
+            const totalQty = STATE.cart.reduce((sum, item) => sum + item.qty, 0);
+            if(batch && batch.currentWeight >= totalQty) { batch.currentWeight -= totalQty; apiPut('batches', { source: batch.source, weight: batch.weight, current_weight: batch.currentWeight, use_by: batch.use_by, status: batch.status, cost_per_kg: batch.cost_per_kg }, batchId); } else { alert('⚠️ Insufficient stock in selected batch!'); return; }
+            
+            // Update customer points if applicable
+            if (STATE.selectedCustomer) {
+                const pointsEarned = Math.floor(t / 100);
+                STATE.selectedCustomer.points += pointsEarned;
+                STATE.selectedCustomer.spent += t;
+                STATE.selectedCustomer.lastVisit = 'Today';
+                apiPut('customers', STATE.selectedCustomer, STATE.selectedCustomer.id);
+            }
+            
+            let paymentDetails = '';
+            if (STATE.paymentMethod === 'cash') paymentDetails = `<p>Payment: Cash</p>`;
+            else if (STATE.paymentMethod === 'mpesa') paymentDetails = `<p>Payment: M-Pesa</p><p>Ref: ${STATE.mpesaRef || 'N/A'}</p>`;
+            else if (STATE.paymentMethod === 'mixed') paymentDetails = `<p>Payment: Mixed</p><p>Cash: KES ${STATE.cashAmount}</p><p>M-Pesa: KES ${STATE.mpesaAmount}</p><p>Ref: ${STATE.mpesaRef || 'N/A'}</p>`;
+            
+            const customerInfo = STATE.selectedCustomer ? `<p>Customer: ${STATE.selectedCustomer.name}</p><p>Phone: ${STATE.selectedCustomer.phone}</p><p>Points Earned: ${Math.floor(t/100)}</p>` : '<p>Customer: Walk-in Guest</p>';
+            
+            // Save sale to database
+            const receiptNo = 'RCP-' + Date.now().toString().slice(-6);
+            apiPost('sales', {
+                receipt_no: receiptNo,
+                total: t,
+                payment_method: STATE.paymentMethod,
+                mpesa_ref: STATE.mpesaRef || '',
+                cash_amount: STATE.cashAmount || 0,
+                mpesa_amount: STATE.mpesaAmount || 0,
+                customer_id: STATE.selectedCustomer?.id || null,
+                batch_id: batchId,
+                items: STATE.cart
+            });
+            apiPost('audit', {
+                time: new Date().toLocaleString(), user: STATE.currentUser?.name || 'Unknown',
+                role: STATE.currentUser?.role || '', action: 'Sale',
+                description: `Receipt ${receiptNo}: KES ${t}`, ip: 'Local'
+            });
+            
+            closeModal(); 
+            document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl w-full max-w-sm border border-theme"><div id="printable-receipt" class="bg-white text-black p-2 font-mono text-xs"><div class="text-center mb-2"><h2 class="font-bold text-sm">OINKLYTICS BUTCHERY</h2></div><div class="border-b border-dashed border-black pb-1 mb-1"><p>Receipt #: <span class="font-bold">${receiptNo}</span></p><p>Date: ${new Date().toLocaleString()}</p><p>Batch: ${batchId}</p>${customerInfo}${paymentDetails}</div><div class="space-y-1 mb-1">${STATE.cart.map(i=>`<div class="flex justify-between"><span>${i.name} x${i.qty}</span><span>${i.price*i.qty}</span></div>`).join('')}</div><div class="border-t border-dashed border-black pt-1"><div class="flex justify-between font-bold"><span>TOTAL</span><span>KES ${t}</span></div></div></div><div class="flex gap-2 mt-4 no-print"><button onclick="window.print()" class="flex-1 py-3 bg-blue-600 text-white rounded-lg justify-center">🖨 Print</button><button onclick="closeModal(); STATE.cart=[]; STATE.paymentMethod='cash'; STATE.mpesaRef=''; STATE.cashAmount=0; STATE.mpesaAmount=0; STATE.selectedCustomer=null; renderCart();" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Done</button></div></div></div>`;
+        }
+        function closeModal() { document.getElementById('modals-container').innerHTML = ''; }
+
+        function renderProducts(c) { const cats = STATE.categories?.map(cat=>`<option>${cat.name}</option>`).join('') || ''; c.innerHTML = `<div class="fade-in"><div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold">Product Setup</h3><div class="flex gap-2">${STATE.currentUser?.role === 'cashier' ? '' : `<button onclick="withAdminPin(()=>openProductModal())" class="px-4 py-3 bg-primary text-white rounded-lg hover:bg-rose-700 text-sm justify-center"><i class="fas fa-plus mr-2"></i>Add Product</button><button onclick="withAdminPin(()=>openCategoryModal())" class="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm justify-center"><i class="fas fa-tags mr-2"></i>Categories</button>`}</div></div><div class="flex gap-2 mb-4"><select class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><option>All Categories</option>${cats}</select><select class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><option>All Status</option><option>Active</option><option>Inactive</option></select></div><div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm text-muted"><tr><th class="p-4">Code</th><th class="p-4">Product Name</th><th class="p-4">Category</th><th class="p-4">Unit</th><th class="p-4">Price (KES)</th><th class="p-4">Status</th>${STATE.currentUser?.role === 'cashier' ? '' : '<th class="p-4">Actions</th>'}</tr></thead><tbody class="divide-y divide-theme">${STATE.products.map(p=>`<tr><td class="p-4 font-mono text-sm">${p.code}</td><td class="p-4 font-bold">${p.name}</td><td class="p-4">${p.category}</td><td class="p-4">${p.unit}</td><td class="p-4">KES ${p.price}</td><td class="p-4"><span class="px-2 py-1 ${p.status==='Active'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'} rounded text-xs">${p.status}</span></td>${STATE.currentUser?.role === 'cashier' ? '' : `<td class="p-4"><button onclick="withAdminPin(()=>openProductModal('${encodeURIComponent(JSON.stringify(p))}'))" class="text-blue-500 hover:underline mr-2 text-sm">Edit</button><button onclick="withAdminPin(()=>deleteProduct('${p.code}'))" class="text-red-500 hover:underline text-sm">Delete</button></td>`}</tr>`).join('')}</tbody></table></div></div></div>`; }
+        function openProductModal(productEncoded) {
+            const isEdit = !!productEncoded;
+            const product = isEdit ? JSON.parse(decodeURIComponent(productEncoded)) : null;
+            if (isEdit) STATE.editingProductCode = product.code;
+            else delete STATE.editingProductCode;
+            document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-lg border border-theme max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">${isEdit ? 'Edit' : 'Add'} Product</h3><button onclick="closeModal()" class="text-muted w-10 h-10 justify-center"><i class="fas fa-times"></i></button></div><div class="space-y-4"><div class="grid grid-cols-2 gap-4"><div><label class="block text-sm mb-1">Product Code</label><input type="text" id="prod-code" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600" value="${isEdit ? product.code : ''}"></div><div><label class="block text-sm mb-1">Product Name</label><input type="text" id="prod-name" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600" value="${isEdit ? product.name : ''}"></div></div><div class="grid grid-cols-2 gap-4"><div><label class="block text-sm mb-1">Category</label><select id="prod-category" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600">${(STATE.categories||[]).map(c=>`<option ${isEdit && product.category === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div><div><label class="block text-sm mb-1">Unit</label><select id="prod-unit" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option ${isEdit && product.unit === 'kg' ? 'selected' : ''}>kg</option><option ${isEdit && product.unit === 'piece' ? 'selected' : ''}>piece</option><option ${isEdit && product.unit === 'pack' ? 'selected' : ''}>pack</option><option ${isEdit && product.unit === 'g' ? 'selected' : ''}>g</option></select></div></div><div><label class="block text-sm mb-1">Selling Price (KES)</label><input type="number" id="prod-price" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600" value="${isEdit ? product.price : ''}"></div><div><label class="block text-sm mb-1">Status</label><select id="prod-status" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option ${isEdit && product.status === 'Active' ? 'selected' : ''}>Active</option><option ${isEdit && product.status === 'Inactive' ? 'selected' : ''}>Inactive</option></select></div></div><div class="flex gap-2 mt-6"><button onclick="closeModal()" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Cancel</button><button onclick="saveProduct()" class="flex-1 py-3 bg-primary text-white rounded-lg justify-center">${isEdit ? 'Update' : 'Save'} Product</button></div></div></div>`;
+        }
+        
+        function renderBatches(c) {
+            c.innerHTML = `<div class="fade-in">
+                <div class="flex gap-1 mb-4 border-b border-theme overflow-x-auto scrollbar-hide pb-1">
+<button onclick="switchBatchTab('receive', this)" class="batch-tab px-3 py-2.5 border-b-2 border-primary text-primary font-bold whitespace-nowrap text-sm">Receive Batch</button>
+                    <button onclick="switchBatchTab('register', this)" class="batch-tab px-3 py-2.5 border-b-2 border-transparent text-muted whitespace-nowrap text-sm">Batch Register</button>
+                    <button onclick="switchBatchTab('cutting', this)" class="batch-tab px-3 py-2.5 border-b-2 border-transparent text-muted whitespace-nowrap text-sm">Cutting & Packing</button>
+                    <button onclick="switchBatchTab('origin', this)" class="batch-tab px-3 py-2.5 border-b-2 border-transparent text-muted whitespace-nowrap text-sm">📊 Origin Dashboard</button>
+                    <button onclick="openSavedReceipts()" class="px-2.5 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 whitespace-nowrap"><i class="fas fa-receipt mr-1"></i>Saved Receipts</button>
+                </div>
+                <div id="batch-tab-receive" class="batch-content"><div class="bg-card p-6 rounded-xl shadow-sm border border-theme"><h3 class="font-bold text-lg mb-4">Receive New Batch</h3><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div class="sm:col-span-2"><label class="block text-sm mb-1">Source Type</label><select id="batch-source" onchange="generateBatchNumber()" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option value="OIN">Oinklytics Farms (Internal)</option><option value="EXT">External Supplier</option><option value="SPOT">Emergency / Spot Purchase</option></select></div><div><label class="block text-sm mb-1">Supplier Name / Code</label><input type="text" id="batch-supplier" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Batch Number <span class="text-xs text-muted">(auto-generated)</span></label><input type="text" id="batch-number" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 bg-gray-100 dark:bg-gray-800" readonly></div><div><label class="block text-sm mb-1">Animal/Carcass ID</label><input type="text" id="batch-animal-id" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Total Weight (kg)</label><input type="number" id="batch-weight" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Cost per kg (KES)</label><input type="number" id="batch-cost" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Storage Location</label><select id="batch-location" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option>Freezer A</option><option>Freezer B</option><option>Chiller 1</option><option>Chiller 2</option><option>Processing Area</option><option>Display</option></select></div><div><label class="block text-sm mb-1">Inspection Status</label><select id="batch-inspection" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option>Accepted</option><option>Partially Accepted</option><option>Rejected</option></select></div><div><label class="block text-sm mb-1">Use-By Date</label><input type="date" id="batch-useby" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Received By</label><input type="text" id="batch-received-by" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Document Reference</label><input type="text" id="batch-doc-ref" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div class="sm:col-span-2"><label class="block text-sm mb-1">Notes / Quality Observations</label><textarea id="batch-notes" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600" rows="2"></textarea></div></div><button onclick="receiveBatch()" class="w-full mt-4 py-3 bg-primary text-white rounded-lg hover:bg-rose-700 justify-center">Receive Batch & 🖨 Print Receipt</button></div></div>
+                <div id="batch-tab-register" class="batch-content hidden"><div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-4">Batch #</th><th class="p-4">Source</th><th class="p-4">Weight (kg)</th><th class="p-4">Storage</th><th class="p-4">Use-By</th><th class="p-4">Status</th><th class="p-4">Actions</th></tr></thead><tbody class="divide-y divide-theme">${STATE.batches.map(b=>`<tr><td class="p-4 font-mono text-sm">${b.id}</td><td class="p-4">${b.source}</td><td class="p-4">${b.currentWeight}</td><td class="p-4">Chiller 1</td><td class="p-4">${b.useBy}</td><td class="p-4"><span class="px-2 py-1 ${b.status==='Active'?'bg-green-100 text-green-700':'bg-orange-100 text-orange-700'} rounded text-xs">${b.status}</span></td><td class="p-4"><button class="text-blue-500 hover:underline text-sm">View</button></td></tr>`).join('')}</tbody></table></div></div></div>
+                <div id="batch-tab-cutting" class="batch-content hidden">
+                    <div class="bg-card p-6 rounded-xl shadow-sm border border-theme mb-4"><h3 class="font-bold text-lg mb-4">Cutting & Packing Workflow</h3><div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4"><div class="sm:col-span-2"><label class="block text-sm mb-1 font-bold">Parent Batch</label><select id="parent-batch-select" onchange="renderChildBatches()" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none"><option value="">-- Select batch... --</option>${STATE.batches.map(b => `<option value="${b.id}">${b.id} (${b.source}) - ${b.weight}kg</option>`).join('')}</select></div><div><label class="block text-sm mb-1">Cutting Date</label><input type="date" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div></div><div class="grid grid-cols-1 sm:grid-cols-3 gap-4"><div><label class="block text-sm mb-1">Staff Member</label><input type="text" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Total Parent Weight (kg)</label><input type="number" id="parent-weight-display" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 bg-gray-100 dark:bg-gray-800" readonly></div><div><label class="block text-sm mb-1">Parent Cost/kg (KES)</label><input type="number" id="parent-cost-display" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 bg-gray-100 dark:bg-gray-800" readonly></div></div></div>
+                    <div id="child-batches-container" class="hidden bg-card p-6 rounded-xl shadow-sm border border-theme"><h4 class="font-bold text-md mb-2 text-primary">🔪 Convert Parent Batch into Sellable Products</h4><p class="text-xs text-muted mb-4">Enter the weight and cost/kg for each cut. Bones/Offcuts and Offal are included where applicable.</p><div class="overflow-x-auto"><table class="w-full text-left min-w-[720px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-3">Sellable Product</th><th class="p-3">Category</th><th class="p-3">Weight (kg)</th><th class="p-3">Cost / kg (KES)</th><th class="p-3">Subtotal (KES)</th><th class="p-3">Status</th></tr></thead><tbody id="child-batches-body" class="divide-y divide-theme"></tbody><tfoot class="bg-gray-50 dark:bg-gray-800 text-sm font-bold"><tr><td class="p-3" colspan="2">Totals</td><td class="p-3"><span id="cut-total-weight">0</span> kg</td><td class="p-3">—</td><td class="p-3">KES <span id="cut-total-cost">0</span></td><td class="p-3"><span id="cut-yield-pct" class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">Yield: 0%</span></td></tr></tfoot></table></div><button onclick="saveCutting()" class="w-full mt-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 justify-center font-bold">✅ Record Cutting & Update Inventory</button></div>
+                </div>
+                <div id="batch-tab-origin" class="batch-content hidden">
+                    <div class="flex gap-2 mb-4"><button class="px-3 py-1 bg-primary text-white rounded text-sm">Today</button><button class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm">This Week</button><button class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm">This Month</button></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6"><div class="bg-card p-5 rounded-xl shadow-sm border border-theme"><h3 class="font-bold text-lg mb-4 text-green-600">🐷 Oinklytics Farms Batches</h3><div class="space-y-2"><div class="flex justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded"><span>Total Batches</span><span class="font-bold">12</span></div><div class="flex justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded"><span>Total Weight</span><span class="font-bold">1,450 kg</span></div><div class="flex justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded"><span>Est. Margin</span><span class="font-bold text-green-600">32%</span></div></div></div><div class="bg-card p-5 rounded-xl shadow-sm border border-theme"><h3 class="font-bold text-lg mb-4 text-blue-600">🚛 External Supplier Batches</h3><div class="space-y-2"><div class="flex justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded"><span>Total Batches</span><span class="font-bold">8</span></div><div class="flex justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded"><span>Total Weight</span><span class="font-bold">680 kg</span></div><div class="flex justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded"><span>Est. Margin</span><span class="font-bold text-blue-600">24%</span></div></div></div></div>
+                    <div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden"><h3 class="font-bold p-4 border-b border-theme">Supplier Ranking — Margin, Quality & Wastage</h3><div class="overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-4">Source</th><th class="p-4">Batches</th><th class="p-4">Total kg</th><th class="p-4">Est. Sales (KES)</th><th class="p-4">Wastage (kg)</th><th class="p-4">Est. Margin</th><th class="p-4">Rating</th></tr></thead><tbody class="divide-y divide-theme"><tr><td class="p-4">Oinklytics Farms</td><td class="p-4">12</td><td class="p-4">1,450</td><td class="p-4">812,000</td><td class="p-4">12</td><td class="p-4 text-green-600 font-bold">32%</td><td class="p-4">⭐⭐⭐⭐⭐</td></tr><tr><td class="p-4">KC Meat Supplies</td><td class="p-4">5</td><td class="p-4">420</td><td class="p-4">231,000</td><td class="p-4">8</td><td class="p-4 text-blue-600 font-bold">24%</td><td class="p-4">⭐⭐⭐⭐</td></tr></tbody></table></div></div>
+                </div>
+            </div>`;
+            setTimeout(generateBatchNumber, 50);
+        }
+        function generateBatchNumber() { const source = document.getElementById('batch-source')?.value; const date = new Date().toISOString().slice(0,10).replace(/-/g,''); const rand = Math.floor(Math.random() * 900) + 100; const prefix = source === 'OIN' ? 'OIN' : source === 'EXT' ? 'EXT-SUPPLIER' : 'SPOT-SUPPLIER'; const input = document.getElementById('batch-number'); if(input) input.value = `${prefix}-${date}-${rand}`; }
+        function switchBatchTab(tab, btn) { document.querySelectorAll('.batch-content').forEach(c=>c.classList.add('hidden')); document.getElementById('batch-tab-'+tab).classList.remove('hidden'); document.querySelectorAll('.batch-tab').forEach(b=>{b.classList.remove('border-primary','text-primary','font-bold');b.classList.add('border-transparent','text-muted');}); btn.classList.add('border-primary','text-primary','font-bold'); btn.classList.remove('border-transparent','text-muted'); if(tab==='receive') generateBatchNumber(); }
+
+        async function receiveBatch() {
+            const supplier = document.getElementById('batch-supplier')?.value.trim();
+            const batchNo = document.getElementById('batch-number')?.value;
+            const weight = parseFloat(document.getElementById('batch-weight')?.value);
+            const cost = parseFloat(document.getElementById('batch-cost')?.value);
+            const location = document.getElementById('batch-location')?.value;
+            const inspection = document.getElementById('batch-inspection')?.value;
+            const useBy = document.getElementById('batch-useby')?.value;
+            const receivedBy = document.getElementById('batch-received-by')?.value.trim();
+            if (!weight || !cost) { alert('Weight and Cost per kg are required.'); return; }
+            const data = { id: batchNo, source: supplier || 'Unknown', weight, current_weight: weight, cost_per_kg: cost, storage: location, inspection, use_by: useBy, received_by: receivedBy, status: 'Active' };
+            const res = await apiPost('batches', data);
+            if (res && res.success) {
+                STATE.batches.unshift({ id: batchNo, source: supplier || 'Unknown', weight, currentWeight: weight, costPerKg: cost, storage: location, inspection, useBy, receivedBy, status: 'Active', created_at: new Date().toLocaleString() });
+                printBatchReceipt(STATE.batches[0]);
+                loadAllData();
+            }
+        }
+        function printBatchReceipt(batch) {
+            const receipt = `<div class="text-center p-4 font-mono text-xs"><h2 class="font-bold text-sm">OINKLYTICS BUTCHERY</h2><p class="text-xs text-muted">Batch Receipt</p><div class="border border-dashed border-black p-3 mt-2 text-left"><p>Batch: <b>${batch.id}</b></p><p>Source: ${batch.source}</p><p>Weight: ${batch.weight} kg</p><p>Cost/kg: KES ${batch.costPerKg}</p><p>Use-By: ${batch.useBy || 'N/A'}</p><p>Location: ${batch.storage || 'N/A'}</p><p>Date: ${new Date().toLocaleString()}</p></div></div>`;
+            document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl w-full max-w-sm border border-theme"><div id="printable-receipt">${receipt}</div><div class="flex gap-2 mt-4 no-print"><button onclick="window.print()" class="flex-1 py-3 bg-blue-600 text-white rounded-lg justify-center">🖨 Print Receipt</button><button onclick="closeModal()" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Save Receipt</button></div></div></div>`;
+        }
+        function openSavedReceipts() {
+            const rows = STATE.batches.map(b => `<tr><td class="p-3 font-mono text-sm font-bold">${b.id}</td><td class="p-3">${b.source}</td><td class="p-3">${b.currentWeight || b.weight} kg</td><td class="p-3 text-sm">${b.created_at || 'N/A'}</td><td class="p-3"><button onclick="printSavedReceipt('${b.id}')" class="px-3 py-1 bg-blue-600 text-white rounded text-xs">🖨</button><button onclick="deleteReceiptBatch('${b.id}')" class="px-3 py-1 bg-red-600 text-white rounded text-xs ml-1">🗑</button></td></tr>`).join('') || '<tr><td class="p-3 text-center text-muted" colspan="5">No saved receipts</td></tr>';
+            document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-xl border border-theme max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">Saved Batch Receipts</h3><span class="text-sm text-muted">${STATE.batches.length} total</span></div><table class="w-full text-left"><thead class="bg-gray-50 dark:bg-gray-800 text-sm text-muted"><tr><th class="p-3">Batch #</th><th class="p-3">Source</th><th class="p-3">Weight</th><th class="p-3">Date</th><th class="p-3">Actions</th></tr></thead><tbody class="divide-y divide-theme">${rows}</tbody></table><button onclick="closeModal()" class="mt-4 w-full py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Close</button></div></div>`;
+        }
+        function printSavedReceipt(id) { const b = STATE.batches.find(x => x.id === id); if (b) printBatchReceipt(b); }
+        async function deleteReceiptBatch(id) { if (!confirm(`Delete receipt for batch "${id}"?`)) return; await apiDel('batches', id); await loadAllData(); openSavedReceipts(); }
+
+        const CUT_TEMPLATE = [
+            { name: 'Pork Chops',    category: 'Pork Cuts',    defaultPrice: 650 },
+            { name: 'Pork Ribs',     category: 'Pork Cuts',    defaultPrice: 600 },
+            { name: 'Pork Belly',    category: 'Pork Cuts',    defaultPrice: 700 },
+            { name: 'Pork Shoulder', category: 'Pork Cuts',    defaultPrice: 550 },
+            { name: 'Pork Leg',      category: 'Pork Cuts',    defaultPrice: 580 },
+            { name: 'Bones/Offcuts', category: 'By-Products',  defaultPrice: 200 },
+            { name: 'Offal',         category: 'Offal',        defaultPrice: 280 }
+        ];
+
+        function renderChildBatches() {
+            const parentId = document.getElementById('parent-batch-select').value;
+            const container = document.getElementById('child-batches-container');
+            const tbody = document.getElementById('child-batches-body');
+            const weightDisplay = document.getElementById('parent-weight-display');
+            const costDisplay = document.getElementById('parent-cost-display');
+            if(!parentId) { container.classList.add('hidden'); return; }
+            const parent = STATE.batches.find(b => b.id === parentId);
+            if(weightDisplay) weightDisplay.value = parent?.weight || 0;
+            if(costDisplay) costDisplay.value = parent?.costPerKg || 0;
+            const existing = (parent && parent.cutProducts) ? parent.cutProducts : [];
+            const rows = CUT_TEMPLATE.map((cut, i) => {
+                const match = existing.find(e => e.name === cut.name);
+                const w = match ? match.weight : 0;
+                const cpk = match && match.costPerKg ? match.costPerKg : (parent?.costPerKg || cut.defaultPrice);
+                return `<tr>
+                    <td class="p-3 font-bold">${cut.name}</td>
+                    <td class="p-3"><span class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">${cut.category}</span></td>
+                    <td class="p-3"><input type="number" step="0.1" min="0" data-cut-idx="${i}" data-field="weight" value="${w}" oninput="recalcCutTotals()" class="w-24 px-2 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"></td>
+                    <td class="p-3"><input type="number" step="1" min="0" data-cut-idx="${i}" data-field="cost" value="${cpk}" oninput="recalcCutTotals()" class="w-28 px-2 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"></td>
+                    <td class="p-3">KES <span data-cut-subtotal="${i}">${(w*cpk).toFixed(0)}</span></td>
+                    <td class="p-3"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">${match ? 'Existing' : 'New'}</span></td>
+                </tr>`;
+            }).join('');
+            tbody.innerHTML = rows;
+            container.classList.remove('hidden');
+            recalcCutTotals();
+        }
+
+        function recalcCutTotals() {
+            const parentId = document.getElementById('parent-batch-select').value;
+            const parent = STATE.batches.find(b => b.id === parentId);
+            const parentWeight = parent?.weight || 0;
+            let totalW = 0, totalC = 0;
+            CUT_TEMPLATE.forEach((_, i) => {
+                const w = parseFloat(document.querySelector(`input[data-cut-idx="${i}"][data-field="weight"]`)?.value) || 0;
+                const c = parseFloat(document.querySelector(`input[data-cut-idx="${i}"][data-field="cost"]`)?.value) || 0;
+                const sub = w * c;
+                const subEl = document.querySelector(`span[data-cut-subtotal="${i}"]`);
+                if (subEl) subEl.textContent = sub.toFixed(0);
+                totalW += w; totalC += sub;
+            });
+            document.getElementById('cut-total-weight').textContent = totalW.toFixed(2);
+            document.getElementById('cut-total-cost').textContent = totalC.toFixed(0);
+            const yieldPct = parentWeight > 0 ? (totalW / parentWeight * 100) : 0;
+            const yEl = document.getElementById('cut-yield-pct');
+            yEl.textContent = `Yield: ${yieldPct.toFixed(1)}%`;
+            yEl.className = 'text-xs px-2 py-1 rounded ' + (yieldPct > 100 ? 'bg-red-100 text-red-700' : yieldPct >= 85 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700');
+        }
+
+        function saveCutting() {
+            const parentId = document.getElementById('parent-batch-select').value;
+            if(!parentId) { alert('Select a parent batch first.'); return; }
+            const parent = STATE.batches.find(b => b.id === parentId);
+            const cuts = CUT_TEMPLATE.map((cut, i) => {
+                const w = parseFloat(document.querySelector(`input[data-cut-idx="${i}"][data-field="weight"]`)?.value) || 0;
+                const c = parseFloat(document.querySelector(`input[data-cut-idx="${i}"][data-field="cost"]`)?.value) || 0;
+                return { name: cut.name, category: cut.category, weight: w, costPerKg: c };
+            }).filter(x => x.weight > 0);
+            const totalW = cuts.reduce((s,x)=>s+x.weight,0);
+            if(totalW > parent.weight) { if(!confirm(`Total cut weight ${totalW}kg exceeds parent ${parent.weight}kg. Save anyway?`)) return; }
+            parent.cutProducts = cuts;
+            alert(`✅ Cutting recorded for ${parentId}: ${cuts.length} products, ${totalW.toFixed(2)}kg total.`);
+        }
+
+
+        function renderInventory(c) {
+            c.innerHTML = `<div class="fade-in">
+                <div class="flex gap-2 mb-4 border-b border-theme overflow-x-auto scrollbar-hide pb-1"><button onclick="switchInvTab('stock', this)" class="inv-tab px-4 py-3 border-b-2 border-primary text-primary font-bold whitespace-nowrap">Stock Levels</button><button onclick="switchInvTab('wastage', this)" class="inv-tab px-4 py-3 border-b-2 border-transparent text-muted whitespace-nowrap">Wastage & Returns</button><button onclick="switchInvTab('temp', this)" class="inv-tab px-4 py-3 border-b-2 border-transparent text-muted whitespace-nowrap">Freezer/Chiller Logs</button></div>
+                <div id="inv-tab-stock" class="inv-content"><div class="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6"><div class="bg-card p-4 rounded-xl border border-theme text-center"><p class="text-xs text-muted">Active Batches</p><p class="font-bold text-lg">${STATE.batches.filter(b=>b.status==='Active').length}</p></div><div class="bg-card p-4 rounded-xl border border-theme text-center"><p class="text-xs text-muted">Total Weight</p><p class="font-bold text-lg text-green-500">${STATE.batches.reduce((s,b)=>s+parseFloat(b.currentWeight||b.weight||0),0).toFixed(1)}kg</p></div><div class="bg-card p-4 rounded-xl border border-theme text-center"><p class="text-xs text-muted">Products</p><p class="font-bold text-lg">${STATE.products.length}</p></div><div class="bg-card p-4 rounded-xl border border-theme text-center"><p class="text-xs text-muted">Low Stock</p><p class="font-bold text-lg text-orange-500">${STATE.products.filter(p=>parseFloat(p.stock||0)<10).length}</p></div><div class="bg-card p-4 rounded-xl border border-theme text-center col-span-2 sm:col-span-1"><p class="text-xs text-muted">Categories</p><p class="font-bold text-lg">${STATE.categories.length}</p></div></div><div class="flex justify-end gap-2 mb-4"><button class="px-3 py-2 bg-green-600 text-white rounded text-sm justify-center">📥 Export CSV</button><button class="px-3 py-2 bg-red-600 text-white rounded text-sm justify-center">📄 Export PDF</button></div><div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left min-w-[800px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-4">Product</th><th class="p-4">Category</th><th class="p-4">Price</th><th class="p-4">Stock</th><th class="p-4">Status</th></tr></thead><tbody class="divide-y divide-theme">${STATE.products.map(p=>`<tr><td class="p-4 font-bold">${p.name}</td><td class="p-4">${p.category}</td><td class="p-4">KES ${p.price}</td><td class="p-4">${p.stock||0} ${p.unit}</td><td class="p-4"><span class="px-2 py-1 ${p.status==='Active'?'bg-green-100 text-green-700':'bg-gray-100 text-gray-700'} rounded text-xs">${p.status}</span></td></tr>`).join('')}</tbody></table></div></div></div>
+                <div id="inv-tab-wastage" class="inv-content hidden"><div class="flex justify-between mb-4"><h3 class="font-bold">Wastage & Returns Log</h3><button onclick="openWastageModal()" class="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm justify-center"><i class="fas fa-plus mr-2"></i>Record Wastage</button></div><div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-4">Date</th><th class="p-4">Product</th><th class="p-4">Batch</th><th class="p-4">Qty (kg)</th><th class="p-4">Reason</th><th class="p-4">Supervisor</th><th class="p-4">Status</th></tr></thead><tbody class="divide-y divide-theme"><tr><td class="p-4">2023-10-24</td><td class="p-4">Liver</td><td class="p-4 font-mono text-xs">OIN-001</td><td class="p-4">1.5kg</td><td class="p-4">Expired</td><td class="p-4">J. Otina</td><td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Approved</span></td></tr></tbody></table></div></div></div>
+                <div id="inv-tab-temp" class="inv-content hidden"><div class="flex justify-between mb-4"><h3 class="font-bold">Freezer / Chiller Temperature Logs</h3><button onclick="openTempModal()" class="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm justify-center"><i class="fas fa-plus mr-2"></i>Log Temperature</button></div><div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-4">Date/Time</th><th class="p-4">Location</th><th class="p-4">Temp (°C)</th><th class="p-4">Staff</th><th class="p-4">Action Taken</th><th class="p-4">Status</th></tr></thead><tbody class="divide-y divide-theme"><tr><td class="p-4">2023-10-24 08:00</td><td class="p-4">Freezer A</td><td class="p-4">-18.5°C</td><td class="p-4">M. Wanjiku</td><td class="p-4">-</td><td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Normal</span></td></tr><tr><td class="p-4">2023-10-24 12:00</td><td class="p-4">Chiller 2</td><td class="p-4 text-red-500 font-bold">5.2°C</td><td class="p-4">M. Wanjiku</td><td class="p-4">Adjusted thermostat</td><td class="p-4"><span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">Alert</span></td></tr></tbody></table></div></div></div>
+            </div>`;
+        }
+        function switchInvTab(tab, btn) { document.querySelectorAll('.inv-content').forEach(c=>c.classList.add('hidden')); document.getElementById('inv-tab-'+tab).classList.remove('hidden'); document.querySelectorAll('.inv-tab').forEach(b=>{b.classList.remove('border-primary','text-primary','font-bold');b.classList.add('border-transparent','text-muted');}); btn.classList.add('border-primary','text-primary','font-bold'); btn.classList.remove('border-transparent','text-muted'); }
+        function openWastageModal() { document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-lg border border-theme max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">Record Wastage / Return</h3><button onclick="closeModal()" class="text-muted w-10 h-10 justify-center"><i class="fas fa-times"></i></button></div><div class="space-y-4"><div><label class="block text-sm mb-1">Type</label><select class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option>Wastage</option><option>Return</option><option>Damage</option></select></div><div class="grid grid-cols-2 gap-4"><div><label class="block text-sm mb-1">Product</label><select class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option>Pork Chops</option><option>Liver</option></select></div><div><label class="block text-sm mb-1">Batch</label><select class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option>OIN-20231024-001</option></select></div></div><div><label class="block text-sm mb-1">Quantity (kg)</label><input type="number" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Reason</label><select class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option>Expired</option><option>Customer Return</option><option>Damaged in Storage</option><option>Quality Failure</option><option>Processing Loss</option><option>Other</option></select></div><div><label class="block text-sm mb-1">Notes</label><textarea class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600" rows="2"></textarea></div><div><label class="block text-sm mb-1">Approving Supervisor</label><input type="text" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div></div><div class="flex gap-2 mt-6"><button onclick="closeModal()" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Cancel</button><button onclick="closeModal()" class="flex-1 py-3 bg-red-600 text-white rounded-lg justify-center">Record Wastage</button></div></div></div>`; }
+        function openTempModal() { document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-lg border border-theme max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">Log Temperature Reading</h3><button onclick="closeModal()" class="text-muted w-10 h-10 justify-center"><i class="fas fa-times"></i></button></div><div class="space-y-4"><div><label class="block text-sm mb-1">Storage Location</label><select class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option>Freezer A</option><option>Freezer B</option><option>Chiller 1</option><option>Chiller 2</option></select></div><div class="grid grid-cols-2 gap-4"><div><label class="block text-sm mb-1">Temperature (°C)</label><input type="number" step="0.1" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Staff Member</label><input type="text" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div></div><div><label class="block text-sm mb-1">Time</label><input type="time" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Action Taken (if temp out of range)</label><textarea class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600" rows="2"></textarea></div></div><div class="flex gap-2 mt-6"><button onclick="closeModal()" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Cancel</button><button onclick="closeModal()" class="flex-1 py-3 bg-blue-600 text-white rounded-lg justify-center">Save Log</button></div></div></div>`; }
+
+        function renderCustomers(c) {
+            c.innerHTML = `<div class="fade-in">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"><div class="bg-card p-4 rounded-xl border border-theme"><p class="text-xs text-muted">Total Members</p><p class="font-bold text-2xl">${STATE.customers.length}</p></div><div class="bg-card p-4 rounded-xl border border-theme"><p class="text-xs text-muted">Points Issued</p><p class="font-bold text-2xl">${STATE.customers.reduce((s,c)=>s+(c.points||0),0).toLocaleString()}</p></div><div class="bg-card p-4 rounded-xl border border-theme"><p class="text-xs text-muted">Total Spent</p><p class="font-bold text-2xl">KES ${STATE.customers.reduce((s,c)=>s+parseFloat(c.spent||0),0).toLocaleString()}</p></div><div class="bg-card p-4 rounded-xl border border-theme"><p class="text-xs text-muted">Total Purchases</p><p class="font-bold text-2xl">${STATE.customers.length}</p></div></div>
+                <div class="flex justify-between mb-4"><h3 class="font-bold">Customer Register</h3><button onclick="openRegisterCustomerModal()" class="px-4 py-3 bg-primary text-white rounded-lg hover:bg-rose-700 text-sm justify-center"><i class="fas fa-plus mr-2"></i>Register Customer</button></div>
+                <div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden mb-6"><div class="overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-4">Name</th><th class="p-4">Phone</th><th class="p-4">Type</th><th class="p-4">Points</th><th class="p-4">Total Purchases</th><th class="p-4">OTP Consent</th><th class="p-4">Registered</th><th class="p-4">Actions</th></tr></thead><tbody class="divide-y divide-theme">${STATE.customers.map(c=>`<tr><td class="p-4">${c.name}</td><td class="p-4">${c.phone}</td><td class="p-4">${c.type}</td><td class="p-4 font-bold text-primary">${c.points}</td><td class="p-4">KES ${c.spent.toLocaleString()}</td><td class="p-4"><i class="fas fa-check-circle text-green-500"></i></td><td class="p-4 text-sm">${c.registered}</td><td class="p-4"><button class="text-blue-500 hover:underline text-sm">View</button></td></tr>`).join('')}</tbody></table></div></div>
+                <h3 class="font-bold mb-4">Top Loyalty Members</h3>
+                <div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-4">Customer</th><th class="p-4">Phone</th><th class="p-4">Points</th><th class="p-4">Total Spent</th><th class="p-4">Last Visit</th></tr></thead><tbody class="divide-y divide-theme">${STATE.customers.sort((a,b)=>b.points-a.points).map(c=>`<tr><td class="p-4 font-bold">${c.name}</td><td class="p-4">${c.phone}</td><td class="p-4 text-primary font-bold">${c.points}</td><td class="p-4">KES ${c.spent.toLocaleString()}</td><td class="p-4">${c.lastVisit}</td></tr>`).join('')}</tbody></table></div></div>
+            </div>`;
+        }
+
+        async function renderShift(c) {
+            const dash = await apiGet('dashboard');
+            const t = dash || STATE.todaySales;
+            c.innerHTML = `<div class="fade-in">
+                <div class="bg-card p-6 rounded-xl shadow-sm border border-theme mb-6"><h3 class="font-bold text-lg mb-4">Shift Summary — ${new Date().toLocaleDateString()} (Current)</h3><div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6"><div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"><p class="text-sm text-muted">Cash Sales</p><p class="font-bold text-xl">KES ${(t.cashSales||0).toLocaleString()}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"><p class="text-sm text-muted">M-Pesa Sales</p><p class="font-bold text-xl">KES ${(t.mpesaSales||0).toLocaleString()}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"><p class="text-sm text-muted">Transactions</p><p class="font-bold text-xl">${t.transactions||0}</p></div></div><div class="grid grid-cols-1 lg:grid-cols-2 gap-6"><div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"><h4 class="font-bold mb-2 text-sm">Sales by Payment Method</h4><canvas id="paymentChart" height="150"></canvas></div><div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"><h4 class="font-bold mb-2 text-sm">Sales by Product</h4><canvas id="productChart" height="150"></canvas></div></div></div>
+                <div class="bg-card p-6 rounded-xl shadow-sm border border-theme"><h3 class="font-bold text-lg mb-4">Shift Close Reconciliation</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+                    <div><label class="block text-sm mb-1 font-bold text-gray-700 dark:text-gray-300">Expected Cash (System)</label><input type="text" value="KES ${(t.cashSales||0).toLocaleString()}" readonly tabindex="-1" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-800 dark:border-gray-600 bg-gray-100 dark:bg-gray-900 text-gray-500 cursor-not-allowed font-bold"><p class="text-xs text-muted mt-1">Calculated from ${t.transactions||0} transactions. Cannot be edited.</p></div>
+                    <div><label class="block text-sm mb-1 font-bold text-green-600">Actual Cash Counted</label><input type="number" placeholder="Enter amount counted" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none focus:ring-2 focus:ring-green-500"></div>
+                    <div><label class="block text-sm mb-1">M-Pesa Total (Auto)</label><input type="text" value="KES ${(t.mpesaSales||0).toLocaleString()}" readonly class="w-full px-3 py-3 rounded-lg border dark:bg-gray-800 dark:border-gray-600 bg-gray-100 dark:bg-gray-900 text-gray-500 cursor-not-allowed"></div>
+                    <div><label class="block text-sm mb-1">Variance</label><input type="text" value="KES 0" readonly class="w-full px-3 py-3 rounded-lg border bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 font-bold"></div>
+                </div>
+                <div class="mb-4"><label class="block text-sm mb-1">Supervisor Notes</label><textarea class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600" rows="2"></textarea></div>
+                <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"><label class="block text-sm mb-2 font-bold">Supervisor Sign-off</label><div class="flex items-center gap-3"><input type="text" placeholder="Supervisor name" class="flex-1 px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><input type="password" placeholder="PIN to confirm" class="w-32 px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div></div>
+                <div class="flex flex-col sm:flex-row gap-4"><button class="flex-1 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 justify-center">✅ Close Shift & Sign Off</button><button class="px-6 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 justify-center">🖨 Print Report</button></div></div>
+            </div>`;
+            setTimeout(() => { 
+                const p1 = document.getElementById('paymentChart'); if(p1) new Chart(p1.getContext('2d'), { type: 'doughnut', data: { labels: ['Cash', 'M-Pesa'], datasets: [{ data: [28150, 20100], backgroundColor: ['#10b981', '#3b82f6'] }] }, options: { responsive: true, plugins: { legend: { position: 'bottom' } } } });
+                const p2 = document.getElementById('productChart'); if(p2) new Chart(p2.getContext('2d'), { type: 'bar', data: { labels: ['Chops', 'Ribs', 'Belly'], datasets: [{ label: 'KES', data: [15000, 12000, 8000], backgroundColor: '#e11d48' }] }, options: { responsive: true, plugins: { legend: { display: false } } } });
+            }, 100);
+        }
+
+        function renderReports(c) { c.innerHTML = `<div class="fade-in"><h3 class="text-lg font-bold mb-4">Reports</h3><div class="flex gap-2 mb-4 flex-wrap"><select class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><option>Daily Sales</option><option>Stock Balance</option><option>Batch Origin</option><option>Customer Loyalty</option><option>Wastage</option><option>Shift Close</option></select><input type="date" class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><input type="date" class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><button class="px-4 py-2 bg-primary text-white rounded-lg text-sm justify-center hover:bg-rose-700">Generate</button></div><div class="bg-card p-6 rounded-xl shadow-sm border border-theme"><p class="text-muted text-center py-12">Select a report type and date range, then click Generate to view detailed analytics.</p></div></div>`; }
+        
+        function renderEquipment(c) {
+            c.innerHTML = `<div class="fade-in"><div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4"><h3 class="text-lg font-bold">🔌 Equipment Monitoring</h3><div class="flex items-center gap-2"><span class="flex items-center gap-2 text-sm text-green-500"><span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Auto-refresh (10s)</span>${STATE.currentUser?.role==='admin'?`<button onclick="openAddEquipmentModal()" class="px-3 py-2 bg-green-600 text-white rounded text-sm justify-center hover:bg-green-700">+ Add Device</button>`:''}<button onclick="simulateReadings()" class="px-3 py-2 bg-blue-600 text-white rounded text-sm justify-center hover:bg-blue-700">⚡ Simulate Readings</button></div></div>
+            <div class="flex items-center gap-2 mb-4"><div class="flex gap-2 overflow-x-auto scrollbar-hide pb-1 flex-1" id="eq-filter-scroll"><button onclick="filterEquipment('all', this)" class="px-3 py-1 bg-primary text-white rounded text-sm whitespace-nowrap">All Devices</button><button onclick="filterEquipment('Chiller,Freezer', this)" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm whitespace-nowrap">Chillers & Freezers</button><button onclick="filterEquipment('Scale', this)" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm whitespace-nowrap">Weighing Scales</button><button onclick="filterEquipment('Printer', this)" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm whitespace-nowrap">Printers</button><button onclick="filterEquipment('Scanner', this)" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm whitespace-nowrap">Barcode Scanners</button><button onclick="filterEquipment('POS', this)" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm whitespace-nowrap">POS Terminals</button><button onclick="filterEquipment('Generator', this)" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm whitespace-nowrap">Generator</button></div><button onclick="document.getElementById('eq-filter-scroll').scrollBy({left:-200,behavior:'smooth'})" class="px-1.5 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs flex-shrink-0 justify-center opacity-60 hover:opacity-100"><i class="fas fa-chevron-left"></i></button><button onclick="document.getElementById('eq-filter-scroll').scrollBy({left:200,behavior:'smooth'})" class="px-1.5 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs flex-shrink-0 justify-center opacity-60 hover:opacity-100"><i class="fas fa-chevron-right"></i></button></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6" id="equipment-grid"></div>
+            <div class="bg-card p-5 rounded-xl shadow-sm border border-theme mb-6"><h3 class="font-bold mb-4 text-red-500">⚠️ Active Alerts</h3><div class="space-y-2"><div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex justify-between items-center"><div><p class="text-sm font-bold">Upright Chiller — Temperature Warning</p><p class="text-xs text-muted">Current: 5.2°C | Threshold: 4°C | Time: 12:00 PM</p></div><button class="px-3 py-1 bg-red-600 text-white rounded text-xs justify-center">Resolve</button></div></div></div>
+            <div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden"><div class="p-4 border-b border-theme flex justify-between items-center"><h3 class="font-bold">Reading History</h3><button class="px-3 py-2 bg-green-600 text-white rounded text-sm justify-center">📥 Export</button></div><div class="overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-4">Time</th><th class="p-4">Device</th><th class="p-4">Type</th><th class="p-4">Reading</th><th class="p-4">Unit</th><th class="p-4">Status</th></tr></thead><tbody class="divide-y divide-theme" id="equipment-history-body"></tbody></table></div></div></div>`;
+            renderEquipmentGrid(); renderEquipmentHistory();
+        }
+        function renderEquipmentGrid() { const g = document.getElementById('equipment-grid'); if(!g) return; g.innerHTML = STATE.equipment.map(eq => { let icon='fa-microchip', val='', color='text-green-500'; if(eq.type==='Chiller'||eq.type==='Freezer'){icon='fa-snowflake'; val=`${eq.temp}°C`; color=eq.status==='Warning'?'text-orange-500':'text-green-500';} else if(eq.type==='Scale'){icon='fa-weight-hanging'; val=`${eq.weight}kg`;} else if(eq.type==='Printer'){icon='fa-print'; val=`Paper: ${eq.paper}%`;} else if(eq.type==='Scanner'){icon='fa-barcode'; val=`Battery: ${eq.battery}%`;} else if(eq.type==='POS'){icon='fa-cash-register'; val='Active';} else if(eq.type==='Generator'){icon='fa-bolt'; val=`Fuel: ${eq.fuel}%`;} const dotColor = eq.status==='Normal'||eq.status==='Online'||eq.status==='Standby'?'bg-green-500':eq.status==='Warning'?'bg-orange-500':'bg-red-500'; return `<div class="bg-card p-5 rounded-xl shadow-sm border border-theme"><div class="flex justify-between items-start mb-4"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center"><i class="fas ${icon}"></i></div><div><p class="font-bold text-sm truncate">${eq.name}</p><p class="text-xs text-muted">${eq.type}</p></div></div><span class="w-3 h-3 rounded-full ${dotColor} animate-pulse flex-shrink-0"></span></div><div class="text-2xl font-bold ${color}">${val}</div><p class="text-xs text-muted mt-1">Status: ${eq.status}</p>${STATE.currentUser?.role==='admin'?`<div class="flex gap-1 mt-2 pt-2 border-t border-theme"><button onclick="openEquipmentModal('${eq.id}')" class="text-xs text-blue-500 hover:underline">Edit</button><button onclick="deleteEquipment('${eq.id}')" class="text-xs text-red-500 hover:underline">Delete</button></div>`:''}</div>`; }).join(''); }
+        function renderEquipmentHistory() { const tbody = document.getElementById('equipment-history-body'); if(!tbody) return; tbody.innerHTML = STATE.equipment.slice(0,5).map(eq => `<tr><td class="p-4 text-sm">${new Date().toLocaleTimeString()}</td><td class="p-4 text-sm">${eq.name}</td><td class="p-4 text-sm">${eq.type}</td><td class="p-4 text-sm font-bold">${eq.type==='Chiller'?eq.temp+'°C':eq.type==='Scale'?eq.weight+'kg':'Online'}</td><td class="p-4 text-sm">${eq.type==='Chiller'?'°C':'-'}</td><td class="p-4"><span class="px-2 py-1 ${eq.status==='Normal'?'bg-green-100 text-green-700':'bg-orange-100 text-orange-700'} rounded text-xs">${eq.status}</span></td></tr>`).join(''); }
+        function simulateReadings() { STATE.equipment.forEach(eq => { if(eq.type==='Chiller') eq.temp = parseFloat((2+Math.random()*4).toFixed(1)); if(eq.type==='Scale') eq.weight = parseFloat((Math.random()*5).toFixed(2)); if(eq.type==='Printer') eq.paper = Math.max(10, eq.paper-Math.floor(Math.random()*2)); }); renderEquipmentGrid(); renderEquipmentHistory(); alert('Readings simulated!'); }
+        let _eqFilter = 'all';
+        function filterEquipment(filter, btn) {
+            _eqFilter = filter;
+            document.querySelectorAll('#equipment-grid > div').forEach((card, i) => {
+                const eq = STATE.equipment[i];
+                if (!eq) return;
+                if (filter === 'all') { card.classList.remove('hidden'); return; }
+                const types = filter.split(',');
+                card.classList.toggle('hidden', !types.includes(eq.type));
+            });
+            document.querySelectorAll('.flex.gap-2.mb-4.overflow-x-auto button').forEach(b => {
+                b.classList.remove('bg-primary', 'text-white');
+                b.classList.add('bg-gray-200', 'dark:bg-gray-700');
+            });
+            if (btn) { btn.classList.remove('bg-gray-200', 'dark:bg-gray-700'); btn.classList.add('bg-primary', 'text-white'); }
+        }
+        function openAddEquipmentModal() {
+            const types = ['Chiller','Freezer','Scale','Printer','Scanner','POS','Generator'];
+            const statuses = ['Normal','Warning','Offline','Online','Standby'];
+            document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-md border border-theme"><h3 class="font-bold text-lg mb-4">Add New Device</h3><div class="space-y-4"><div><label class="block text-sm mb-1">Device Name</label><input type="text" id="eq-name" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Type</label><select id="eq-type" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600">${types.map(t => `<option value="${t}">${t}</option>`).join('')}</select></div><div><label class="block text-sm mb-1">Status</label><select id="eq-status" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600">${statuses.map(s => `<option value="${s}">${s}</option>`).join('')}</select></div></div><div class="flex gap-2 mt-6"><button onclick="closeModal()" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Cancel</button><button onclick="addNewEquipment()" class="flex-1 py-3 bg-primary text-white rounded-lg justify-center">Add</button></div></div></div>`;
+        }
+        async function addNewEquipment() {
+            const name = document.getElementById('eq-name')?.value.trim();
+            const type = document.getElementById('eq-type')?.value;
+            const status = document.getElementById('eq-status')?.value;
+            if (!name) { alert('Device name is required.'); return; }
+            const id = name.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now();
+            const eq = { id, name, type, temp: 0, weight: 0, paper: 100, battery: 100, fuel: 100, status };
+            const res = await apiPost('equipment', eq);
+            if (res && res.success) {
+                STATE.equipment.push(eq);
+                closeModal(); renderEquipmentGrid();
+            }
+        }
+        function openEquipmentModal(id) {
+            const eq = STATE.equipment.find(x => x.id === id);
+            if (!eq) return;
+            const types = ['Chiller','Freezer','Scale','Printer','Scanner','POS','Generator'];
+            const statuses = ['Normal','Warning','Offline','Online','Standby'];
+            document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-md border border-theme"><h3 class="font-bold text-lg mb-4">Edit Device</h3><div class="space-y-4"><div><label class="block text-sm mb-1">Device Name</label><input type="text" id="eq-name" value="${eq.name}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Type</label><select id="eq-type" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600">${types.map(t => `<option value="${t}" ${t===eq.type?'selected':''}>${t}</option>`).join('')}</select></div><div><label class="block text-sm mb-1">Status</label><select id="eq-status" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600">${statuses.map(s => `<option value="${s}" ${s===eq.status?'selected':''}>${s}</option>`).join('')}</select></div></div><div class="flex gap-2 mt-6"><button onclick="closeModal()" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Cancel</button><button onclick="saveEquipment('${id}')" class="flex-1 py-3 bg-primary text-white rounded-lg justify-center">Save</button></div></div></div>`;
+        }
+        async function saveEquipment(id) {
+            const eq = STATE.equipment.find(x => x.id === id);
+            if (!eq) return;
+            const name = document.getElementById('eq-name')?.value.trim();
+            const type = document.getElementById('eq-type')?.value;
+            const status = document.getElementById('eq-status')?.value;
+            if (!name) { alert('Device name is required.'); return; }
+            eq.name = name; eq.type = type; eq.status = status;
+            await apiPut('equipment', eq, id);
+            closeModal(); renderEquipmentGrid();
+        }
+        async function deleteEquipment(id) {
+            if (!confirm(`Delete this device?`)) return;
+            await apiDel('equipment', id);
+            STATE.equipment = STATE.equipment.filter(x => x.id !== id);
+            renderEquipmentGrid(); renderEquipmentHistory();
+        }
+
+        function renderAudit(c) {
+            c.innerHTML = `<div class="fade-in"><h3 class="text-lg font-bold mb-2">🔒 Audit Log</h3><p class="text-sm text-muted mb-4">Tamper-proof record of all system actions</p><div class="flex flex-wrap gap-2 mb-4"><select class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><option>All Types</option><option>Login</option><option>Sale</option><option>Stock Change</option><option>User Management</option><option>Discount</option><option>Wastage</option><option>Shift</option><option>Settings</option></select><select class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><option>All Roles</option><option>Admin</option><option>Supervisor</option><option>Cashier</option></select><button class="px-3 py-2 bg-green-600 text-white rounded text-sm justify-center">📥 Export Log</button></div><div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-4">Timestamp</th><th class="p-4">User</th><th class="p-4">Role</th><th class="p-4">Action Type</th><th class="p-4">Description</th><th class="p-4">IP / Device</th></tr></thead><tbody class="divide-y divide-theme font-mono text-xs">${STATE.auditLog.map(l=>`<tr><td class="p-4">${l.time}</td><td class="p-4">${l.user}</td><td class="p-4">${l.role}</td><td class="p-4"><span class="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded">${l.action}</span></td><td class="p-4">${l.desc}</td><td class="p-4">${l.ip}</td></tr>`).join('')}</tbody></table></div></div></div>`;
+        }
+        
+        function renderSettings(c) { c.innerHTML = `<div class="fade-in"><div class="flex gap-2 mb-4 border-b border-theme overflow-x-auto scrollbar-hide pb-1"><button onclick="switchSetTab('users', this)" class="set-tab px-4 py-3 border-b-2 border-primary text-primary font-bold whitespace-nowrap">User Management</button><button onclick="switchSetTab('system', this)" class="set-tab px-4 py-3 border-b-2 border-transparent text-muted whitespace-nowrap">System Settings</button><button onclick="switchSetTab('backup', this)" class="set-tab px-4 py-3 border-b-2 border-transparent text-muted whitespace-nowrap">Backup & Export</button><button onclick="switchSetTab('checklist', this)" class="set-tab px-4 py-3 border-b-2 border-transparent text-muted whitespace-nowrap">📋 Go-Live Checklist</button><button onclick="switchSetTab('campaigns', this)" class="set-tab px-4 py-3 border-b-2 border-transparent text-muted whitespace-nowrap">🎁 Reward Campaigns</button></div>
+            <div id="set-tab-users" class="set-content"><div class="flex justify-between items-center mb-4"><h3 class="font-bold">System Users</h3><button onclick="openUserModal()" class="px-4 py-3 bg-primary text-white rounded-lg hover:bg-rose-700 text-sm justify-center"><i class="fas fa-user-plus mr-2"></i>Add User</button></div><div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-4">Name</th><th class="p-4">Username</th><th class="p-4">Role</th><th class="p-4">Status</th><th class="p-4">Last Login</th><th class="p-4">Actions</th></tr></thead><tbody class="divide-y divide-theme" id="users-table-body"></tbody></table></div></div></div>
+            <div id="set-tab-system" class="set-content hidden"><div class="bg-card p-6 rounded-xl shadow-sm border border-theme space-y-6"><div><h3 class="font-bold text-lg mb-4">Business Settings</h3><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-sm mb-1">Business Name</label><input type="text" value="${STATE.settings.businessName}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Currency</label><input type="text" value="${STATE.settings.currency} (Kenyan Shilling)" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Low Stock Warning Threshold (kg)</label><input type="number" value="${STATE.settings.lowStockThreshold}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Expiry Warning Days</label><input type="number" value="${STATE.settings.expiryWarningDays}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Temperature Alert — Freezer Max (°C)</label><input type="number" value="${STATE.settings.freezerMaxTemp}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Temperature Alert — Chiller Max (°C)</label><input type="number" value="${STATE.settings.chillerMaxTemp}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div></div></div><div class="border-t border-theme pt-4"><h3 class="font-bold text-lg mb-2">Loyalty Points Rules</h3><p class="text-xs text-muted mb-4">Per the implementation guide: 1 point per KES 100 spent · 1 point = KES 1 discount · Min 100 pts to redeem · Max 20% of sale</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-sm mb-1">Earn Rate (KES spent per point)</label><input type="number" value="${STATE.settings.earnRate}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Point Value (KES per point redeemed)</label><input type="number" value="${STATE.settings.pointValue}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Minimum Redemption (points)</label><input type="number" value="${STATE.settings.minRedeem}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Maximum Redemption (% of bill)</label><input type="number" value="${STATE.settings.maxRedeemPct}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Points Expiry (months)</label><input type="number" value="${STATE.settings.pointsExpiry}" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div></div></div><div class="border-t border-theme pt-4"><h3 class="font-bold text-lg mb-2">Payment Integration</h3><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-sm mb-1">M-Pesa Integration Mode</label><select class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option>Manual Reference Entry (MVP)</option><option>Daraja API — STK Push (Phase 2)</option></select></div><div><label class="block text-sm mb-1">Daraja Shortcode / Till Number</label><input type="text" value="${STATE.settings.darajaShortcode}" placeholder="e.g., 174379" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">eTIMS Integration</label><select class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option>Manual (Separate Process)</option><option>System-to-System API (Phase 2)</option></select></div></div></div><button class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-rose-700 justify-center">Save Settings</button></div></div>
+            <div id="set-tab-backup" class="set-content hidden"><div class="bg-card p-6 rounded-xl shadow-sm border border-theme"><h3 class="font-bold text-lg mb-4">Data Export</h3><div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6"><button class="p-4 border border-theme rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-left justify-start"><i class="fas fa-file-csv text-green-500 mr-2"></i>📥 Export Sales Data (CSV)</button><button class="p-4 border border-theme rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-left justify-start"><i class="fas fa-file-csv text-green-500 mr-2"></i>📥 Export Stock Data (CSV)</button><button class="p-4 border border-theme rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-left justify-start"><i class="fas fa-file-csv text-green-500 mr-2"></i>📥 Export Customers (CSV)</button><button class="p-4 border border-theme rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-left justify-start"><i class="fas fa-file-csv text-green-500 mr-2"></i>📥 Export Batch Register (CSV)</button><button class="p-4 border border-theme rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-left justify-start"><i class="fas fa-file-csv text-green-500 mr-2"></i>📥 Export Wastage Log (CSV)</button><button class="p-4 border border-theme rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-left justify-start"><i class="fas fa-file-pdf text-red-500 mr-2"></i>📄 Full System Report (PDF)</button></div><div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"><h4 class="font-bold mb-2">Database Backup</h4><div class="flex flex-col sm:flex-row gap-2 mb-2"><button class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 justify-center">💾 Download Full Backup (JSON)</button><button class="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 justify-center">📤 Restore from Backup</button></div><p class="text-xs text-muted">Last backup: Today 06:00 AM • Records: 1,247 transactions | 124 customers | 8 active batches</p></div></div></div>
+            <div id="set-tab-checklist" class="set-content hidden"><div class="bg-card p-6 rounded-xl shadow-sm border border-theme"><h3 class="font-bold text-lg mb-2">📋 Go-Live Deployment Checklist</h3><p class="text-sm text-muted mb-4">Tick each item before go-live. Supervisor sign-off required.</p><h4 class="font-bold mb-2 text-primary">PRE-LAUNCH SETUP</h4><div class="space-y-2 mb-6"><label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"><input type="checkbox" class="w-5 h-5 text-primary flex-shrink-0"> Database schema migrated and RLS policies active</label><label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"><input type="checkbox" class="w-5 h-5 text-primary flex-shrink-0"> Daraja API credentials configured for M-Pesa STK Push</label><label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"><input type="checkbox" class="w-5 h-5 text-primary flex-shrink-0"> Thermal receipt printer connected and tested</label><label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"><input type="checkbox" class="w-5 h-5 text-primary flex-shrink-0"> Equipment IoT sensors calibrated and reporting</label><label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"><input type="checkbox" class="w-5 h-5 text-primary flex-shrink-0"> Staff trained on operating procedures</label></div><h4 class="font-bold mb-2 text-secondary">PHASE 2 UPGRADES TRACKER</h4><div class="space-y-2"><div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"><span>WhatsApp Ordering Integration</span><span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Medium Priority</span></div><div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"><span>KRA eTIMS System-to-System API</span><span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">High Priority</span></div></div></div></div>
+            <div id="set-tab-campaigns" class="set-content hidden"><div class="bg-card p-6 rounded-xl shadow-sm border border-theme"><h3 class="font-bold text-lg mb-2">🎁 Reward Campaigns</h3><p class="text-sm text-muted mb-4">Campaigns require Admin approval before activation</p><div class="bg-card rounded-xl shadow-sm border border-theme overflow-hidden mb-6"><div class="overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-gray-50 dark:bg-gray-800 text-sm"><tr><th class="p-4">Campaign</th><th class="p-4">How it Works</th><th class="p-4">Purpose</th><th class="p-4">Status</th><th class="p-4">Action</th></tr></thead><tbody class="divide-y divide-theme"><tr><td class="p-4 font-bold">Launch Reward</td><td class="p-4 text-sm">Double points for first 100 customers</td><td class="p-4 text-sm">Acquisition</td><td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Active</span></td><td class="p-4"><button class="text-blue-500 text-sm">Edit</button></td></tr><tr><td class="p-4 font-bold">Slow-Moving Cut Boost</td><td class="p-4 text-sm">1.5x points on offal and bones</td><td class="p-4 text-sm">Reduce Wastage</td><td class="p-4"><span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs">Pending</span></td><td class="p-4"><button class="text-green-500 text-sm">Approve</button></td></tr><tr><td class="p-4 font-bold">Family Pack Reward</td><td class="p-4 text-sm">Flat 200 pts for purchases over KES 2000</td><td class="p-4 text-sm">Increase Ticket Size</td><td class="p-4"><span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">Draft</span></td><td class="p-4"><button class="text-blue-500 text-sm">Edit</button></td></tr><tr><td class="p-4 font-bold">Referral Reward</td><td class="p-4 text-sm">500 pts for each referred customer</td><td class="p-4 text-sm">Growth</td><td class="p-4"><span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">Draft</span></td><td class="p-4"><button class="text-blue-500 text-sm">Edit</button></td></tr><tr><td class="p-4 font-bold">Monthly Top Buyer</td><td class="p-4 text-sm">Bonus 1000 pts for highest spender</td><td class="p-4 text-sm">Retention</td><td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Active</span></td><td class="p-4"><button class="text-blue-500 text-sm">Edit</button></td></tr></tbody></table></div></div><h4 class="font-bold mb-2">Current Points Rules Summary</h4><div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm space-y-1"><p>• Earn Rate: <strong>${STATE.settings.earnRate} KES</strong> spent = 1 point</p><p>• Point Value: <strong>${STATE.settings.pointValue} KES</strong> per point redeemed</p><p>• Minimum Redemption: <strong>${STATE.settings.minRedeem} points</strong></p><p>• Maximum Redemption: <strong>${STATE.settings.maxRedeemPct}%</strong> of bill</p><p>• Points Expiry: <strong>${STATE.settings.pointsExpiry} months</strong></p></div></div></div></div>`;
+            const ut = document.getElementById('users-table-body'); if(ut) { ut.innerHTML = STATE.users.map(u => `<tr><td class="p-4">${u.name}</td><td class="p-4 font-mono text-sm truncate max-w-[150px]">${u.username}</td><td class="p-4"><span class="px-2 py-1 ${u.role==='admin'?'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400':u.role==='supervisor'?'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400':'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'} rounded text-xs">${u.role.charAt(0).toUpperCase()+u.role.slice(1)}</span></td><td class="p-4"><span class="text-green-500">${u.status}</span></td><td class="p-4 text-sm">${u.lastLogin}</td><td class="p-4">${u.username!=='admin'?`<button onclick="toggleAdmin(${u.id})" class="text-blue-500 hover:underline mr-3 text-sm whitespace-nowrap">${u.role==='admin'?'Demote':'Make Admin'}</button><button onclick="deleteUser(${u.id})" class="text-red-500 hover:underline text-sm whitespace-nowrap">Delete</button>`:'<span class="text-muted text-xs italic">Primary</span>'}</td></tr>`).join(''); } }
+        function switchSetTab(tab, btn) { document.querySelectorAll('.set-content').forEach(c=>c.classList.add('hidden')); document.getElementById('set-tab-'+tab).classList.remove('hidden'); document.querySelectorAll('.set-tab').forEach(b=>{b.classList.remove('border-primary','text-primary','font-bold');b.classList.add('border-transparent','text-muted');}); btn.classList.add('border-primary','text-primary','font-bold'); btn.classList.remove('border-transparent','text-muted'); }
+        function openUserModal() { document.getElementById('modals-container').innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm no-print fade-in p-4"><div class="bg-card p-6 rounded-xl shadow-xl w-full max-w-lg border border-theme max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">Add / Edit User</h3><button onclick="closeModal()" class="text-muted w-10 h-10 justify-center"><i class="fas fa-times"></i></button></div><div class="space-y-4"><div><label class="block text-sm mb-1">Full Name</label><input type="text" id="new-user-name" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Username</label><input type="text" id="new-user-email" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Password</label><input type="password" id="new-user-pass" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"></div><div><label class="block text-sm mb-1">Role</label><select id="new-user-role" class="w-full px-3 py-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600"><option value="admin">Admin</option><option value="supervisor">Supervisor</option><option value="cashier" selected>Cashier</option></select></div></div><div class="flex gap-2 mt-6"><button onclick="closeModal()" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg justify-center">Cancel</button><button onclick="saveNewUser()" class="flex-1 py-3 bg-primary text-white rounded-lg justify-center">Save</button></div></div></div>`; }
+        async function saveNewUser() { const n=document.getElementById('new-user-name').value; const e=document.getElementById('new-user-email').value.trim().toLowerCase(); const p=document.getElementById('new-user-pass').value; const r=document.getElementById('new-user-role').value; if(!n||!e||!p) return alert('Fill all fields'); if(STATE.users.find(u=>u.username===e)) return alert('User exists'); const result = await apiPost('users', {name:n, username:e, password:p, role:r}); if(result && result.success) { STATE.users.push({id:result.id, name:n, username:e, password:p, role:r, status:'Active', lastLogin:'Never'}); } closeModal(); renderSettings(document.getElementById('main-content')); setTimeout(()=>{const b=Array.from(document.querySelectorAll('.set-tab')).find(x=>x.innerText.includes('User')); if(b) switchSetTab('users',b);},50); }
+        async function toggleAdmin(id) { const u=STATE.users.find(x=>x.id===id); if(u && u.username!=='admin') { u.role = u.role==='admin'?'supervisor':'admin'; await apiPut('users', {toggleRole:true}, id); renderSettings(document.getElementById('main-content')); setTimeout(()=>{const b=Array.from(document.querySelectorAll('.set-tab')).find(x=>x.innerText.includes('User')); if(b) switchSetTab('users',b);},50); } }
+        async function deleteUser(id) { const u=STATE.users.find(x=>x.id===id); if(u && u.username!=='admin' && confirm(`Delete ${u.name}?`)) { STATE.users = STATE.users.filter(x=>x.id!==id); await apiDel('users', id); renderSettings(document.getElementById('main-content')); setTimeout(()=>{const b=Array.from(document.querySelectorAll('.set-tab')).find(x=>x.innerText.includes('User')); if(b) switchSetTab('users',b);},50); } }
+
+        // Initialize
+        initTheme();
+        setInterval(() => { STATE.equipment.forEach(eq => { if(eq.type==='Chiller') eq.temp=parseFloat((2+Math.random()*3).toFixed(1)); if(eq.type==='Scale') eq.weight=parseFloat((Math.random()*5).toFixed(2)); if(eq.type==='Printer') eq.paper=Math.max(10, eq.paper-Math.floor(Math.random()*2)); }); if(document.getElementById('equipment-grid')) { renderEquipmentGrid(); renderEquipmentHistory(); } }, 10000);
+    </script>
+</body>
+</html>
