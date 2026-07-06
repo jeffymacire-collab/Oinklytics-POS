@@ -806,7 +806,7 @@ function renderProducts(c) { const cats = STATE.categories?.map(cat=>`<option>${
             if (period === 'today') { start = new Date(now.getFullYear(), now.getMonth(), now.getDate()); }
             else if (period === 'week') { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); start = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
             else { start = new Date(now.getFullYear(), now.getMonth(), 1); }
-            const filtered = STATE.batches.filter(b => { const d = new Date(b.created_at || b.createdAt); return d >= start && d <= now; });
+            const filtered = STATE.batches.filter(b => { const d = new Date((b.created_at || b.createdAt || '').replace(' ', 'T')); return !isNaN(d) && d >= start && d <= now; });
             const farm = filtered.filter(b => b.source && b.source.toLowerCase().includes('oink'));
             const ext = filtered.filter(b => !b.source || !b.source.toLowerCase().includes('oink'));
             const farmW = farm.reduce((s,b) => s + parseFloat(b.currentWeight || b.weight || 0), 0);
