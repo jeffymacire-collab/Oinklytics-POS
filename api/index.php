@@ -259,6 +259,61 @@ try {
             }
             break;
 
+        // ============ REPORTS ============
+        case 'reports':
+            if ($method === 'GET' && ($_GET['type'] ?? '') === 'product_sales') {
+                $from = $_GET['from'] ?? date('Y-m-d');
+                $to = $_GET['to'] ?? date('Y-m-d');
+                $stmt = $pdo->prepare("SELECT * FROM sales WHERE DATE(created_at) BETWEEN ? AND ? ORDER BY created_at");
+                $stmt->execute([$from, $to]);
+                $sales = $stmt->fetchAll();
+                $productSales = [];
+                foreach ($sales as $sale) {
+                    $items = json_decode($sale['items'], true) ?? [];
+                    foreach ($items as $item) {
+                        $code = $item['product'] ?? $item['code'] ?? 'UNKNOWN';
+                        if (!isset($productSales[$code])) {
+                            $productSales[$code] = ['product' => $code, 'name' => $item['name'] ?? 'Unknown', 'qty' => 0, 'orders' => 0, 'revenue' => 0];
+                        }
+                        $productSales[$code]['qty'] += floatval($item['qty'] ?? $item['quantity'] ?? 0);
+                        $productSales[$code]['revenue'] += floatval($item['total'] ?? $item['subtotal'] ?? 0);
+                        $productSales[$code]['orders']++;
+                    }
+                }
+                echo json_encode(array_values($productSales));
+            } elseif ($method === 'GET' && ($_GET['type'] ?? '') === 'daily_sales') {
+                $from = $_GET['from'] ?? date('Y-m-d');
+                $to = $_GET['to'] ?? date('Y-m-d');
+                $stmt = $pdo->prepare("SELECT DATE(created_at) as date, COUNT(*) as transactions, COALESCE(SUM(total),0) as total, COALESCE(SUM(cash_amount),0) as cash, COALESCE(SUM(mpesa_amount),0) as mpesa FROM sales WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY DATE(created_at) ORDER BY date");
+                $stmt->execute([$from, $to]);
+                echo json_encode($stmt->fetchAll());
+            } elseif ($method === 'GET' && ($_GET['type'] ?? '') === 'stock') {
+                $stmt = $pdo->query("SELECT code, name, category, unit, stock, price, status FROM products ORDER BY name");
+                echo json_encode($stmt->fetchAll());
+            } elseif ($method === 'GET' && ($_GET['type'] ?? '') === 'batch') {
+                $from = $_GET['from'] ?? date('Y-m-d', strtotime('-30 days'));
+                $to = $_GET['to'] ?? date('Y-m-d');
+                $stmt = $pdo->prepare("SELECT * FROM batches WHERE DATE(created_at) BETWEEN ? AND ? ORDER BY created_at DESC");
+                $stmt->execute([$from, $to]);
+                echo json_encode($stmt->fetchAll());
+            } elseif ($method === 'GET' && ($_GET['type'] ?? '') === 'wastage') {
+                $from = $_GET['from'] ?? date('Y-m-d');
+                $to = $_GET['to'] ?? date('Y-m-d');
+                $stmt = $pdo->prepare("SELECT * FROM wastage WHERE DATE(created_at) BETWEEN ? AND ? ORDER BY created_at DESC");
+                $stmt->execute([$from, $to]);
+                echo json_encode($stmt->fetchAll());
+            } elseif ($method === 'GET' && ($_GET['type'] ?? '') === 'customers') {
+                $stmt = $pdo->query("SELECT id, name, phone, type, area, points, spent, last_visit AS lastVisit FROM customers ORDER BY spent DESC");
+                echo json_encode($stmt->fetchAll());
+            } elseif ($method === 'GET' && ($_GET['type'] ?? '') === 'employees') {
+                $stmt = $pdo->query("SELECT id, name, username, role, status, last_login FROM users ORDER BY name");
+                echo json_encode($stmt->fetchAll());
+            } else {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid report type']);
+            }
+            break;
+
         // ============ VERIFY ADMIN PIN ============
         case 'verify_pin':
             $stmt = $pdo->prepare("SELECT id FROM users WHERE username='admin' AND password=? AND role='admin'");
