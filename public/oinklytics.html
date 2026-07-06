@@ -938,7 +938,66 @@
             }, 100);
         }
 
-        function renderReports(c) { c.innerHTML = `<div class="fade-in"><h3 class="text-lg font-bold mb-4">Reports</h3><div class="flex gap-2 mb-4 flex-wrap"><select class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><option>Daily Sales</option><option>Stock Balance</option><option>Batch Origin</option><option>Customer Loyalty</option><option>Wastage</option><option>Shift Close</option></select><input type="date" class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><input type="date" class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><button class="px-4 py-2 bg-primary text-white rounded-lg text-sm justify-center hover:bg-rose-700">Generate</button></div><div class="bg-card p-6 rounded-xl shadow-sm border border-theme"><p class="text-muted text-center py-12">Select a report type and date range, then click Generate to view detailed analytics.</p></div></div>`; }
+        function renderReports(c) { c.innerHTML = `<div class="fade-in"><h3 class="text-lg font-bold mb-4">Reports</h3><div class="flex gap-2 mb-4 flex-wrap"><select id="report-type" class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><option value="daily_sales">Daily Sales</option><option value="stock">Stock Balance</option><option value="batch">Batch Origin</option><option value="customers">Customer Loyalty</option><option value="wastage">Wastage</option><option value="employees">Employees Report</option><option value="product_sales">Product Sales</option></select><input type="date" id="report-from" class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><input type="date" id="report-to" class="px-3 py-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm"><button onclick="generateReport()" class="px-4 py-2 bg-primary text-white rounded-lg text-sm justify-center hover:bg-rose-700">Generate</button></div><div id="report-result" class="bg-card p-6 rounded-xl shadow-sm border border-theme"><p class="text-muted text-center py-12">Select a report type and date range, then click Generate to view detailed analytics.</p></div></div>`; }
+
+        let _reportParams = null;
+        async function generateReport() {
+            const type = document.getElementById('report-type').value;
+            const from = document.getElementById('report-from').value || new Date().toISOString().slice(0,10);
+            const to = document.getElementById('report-to').value || new Date().toISOString().slice(0,10);
+            _reportParams = { type, from, to };
+            const div = document.getElementById('report-result');
+            div.innerHTML = '<p class="text-muted text-center py-12">Loading...</p>';
+            try {
+                let data;
+                switch (type) {
+                    case 'product_sales': {
+                        data = await apiGet(`reports&type=product_sales&from=${from}&to=${to}`);
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No sales data found for this period.</p>'; return; }
+                        div.innerHTML = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">Product</th><th class="p-3">Name</th><th class="p-3">Qty Sold</th><th class="p-3">Orders</th><th class="p-3">Revenue</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3 font-mono">${r.product}</td><td class="p-3">${r.name}</td><td class="p-3">${r.qty}</td><td class="p-3">${r.orders}</td><td class="p-3">KES ${parseFloat(r.revenue).toLocaleString()}</td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    }
+                    case 'daily_sales': {
+                        data = await apiGet(`reports&type=daily_sales&from=${from}&to=${to}`);
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No sales data for this period.</p>'; return; }
+                        div.innerHTML = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">Date</th><th class="p-3">Transactions</th><th class="p-3">Cash</th><th class="p-3">M-Pesa</th><th class="p-3">Total</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3">${r.date}</td><td class="p-3">${r.transactions}</td><td class="p-3">KES ${parseFloat(r.cash).toLocaleString()}</td><td class="p-3">KES ${parseFloat(r.mpesa).toLocaleString()}</td><td class="p-3 font-bold">KES ${parseFloat(r.total).toLocaleString()}</td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    }
+                    case 'stock': {
+                        data = await apiGet('reports&type=stock');
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No products found.</p>'; return; }
+                        div.innerHTML = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">Code</th><th class="p-3">Name</th><th class="p-3">Category</th><th class="p-3">Stock</th><th class="p-3">Unit</th><th class="p-3">Price</th><th class="p-3">Status</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3 font-mono">${r.code}</td><td class="p-3">${r.name}</td><td class="p-3">${r.category}</td><td class="p-3">${r.stock}</td><td class="p-3">${r.unit}</td><td class="p-3">KES ${parseFloat(r.price).toLocaleString()}</td><td class="p-3"><span class="px-2 py-0.5 ${r.status==='Active'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'} rounded text-xs">${r.status}</span></td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    }
+                    case 'batch': {
+                        data = await apiGet(`reports&type=batch&from=${from}&to=${to}`);
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No batches found for this period.</p>'; return; }
+                        div.innerHTML = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">ID</th><th class="p-3">Source</th><th class="p-3">Weight</th><th class="p-3">Current</th><th class="p-3">Cost/Kg</th><th class="p-3">Use By</th><th class="p-3">Status</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3 font-mono">${r.id}</td><td class="p-3">${r.source}</td><td class="p-3">${r.weight}kg</td><td class="p-3">${r.current_weight??r.currentWeight}kg</td><td class="p-3">KES ${parseFloat(r.cost_per_kg??r.costPerKg).toLocaleString()}</td><td class="p-3">${r.use_by??r.useBy}</td><td class="p-3"><span class="px-2 py-0.5 ${r.status==='Active'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'} rounded text-xs">${r.status}</span></td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    }
+                    case 'wastage': {
+                        data = await apiGet(`reports&type=wastage&from=${from}&to=${to}`);
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No wastage records for this period.</p>'; return; }
+                        div.innerHTML = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">Date</th><th class="p-3">Product</th><th class="p-3">Qty</th><th class="p-3">Reason</th><th class="p-3">Supervisor</th><th class="p-3">Status</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3">${r.date}</td><td class="p-3">${r.product}</td><td class="p-3">${r.qty}kg</td><td class="p-3">${r.reason}</td><td class="p-3">${r.supervisor||'-'}</td><td class="p-3"><span class="px-2 py-0.5 ${r.status==='Approved'?'bg-green-100 text-green-700':'bg-orange-100 text-orange-700'} rounded text-xs">${r.status}</span></td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    }
+                    case 'employees': {
+                        data = await apiGet('reports&type=employees');
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No employees found.</p>'; return; }
+                        div.innerHTML = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">Name</th><th class="p-3">Username</th><th class="p-3">Role</th><th class="p-3">Status</th><th class="p-3">Last Login</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3">${r.name}</td><td class="p-3">${r.username}</td><td class="p-3">${r.role}</td><td class="p-3"><span class="px-2 py-0.5 ${r.status==='Active'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'} rounded text-xs">${r.status}</span></td><td class="p-3">${r.last_login}</td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    }
+                    case 'customers': {
+                        data = await apiGet('reports&type=customers');
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No customers found.</p>'; return; }
+                        div.innerHTML = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">Name</th><th class="p-3">Phone</th><th class="p-3">Type</th><th class="p-3">Area</th><th class="p-3">Points</th><th class="p-3">Total Spent</th><th class="p-3">Last Visit</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3">${r.name}</td><td class="p-3">${r.phone}</td><td class="p-3">${r.type}</td><td class="p-3">${r.area}</td><td class="p-3">${r.points}</td><td class="p-3">KES ${parseFloat(r.spent).toLocaleString()}</td><td class="p-3">${r.lastVisit}</td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    }
+                }
+            } catch (e) {
+                div.innerHTML = `<p class="text-red-500 text-center py-12">Error generating report: ${e.message}</p>`;
+            }
+        }
         
         function renderEquipment(c) {
             c.innerHTML = `<div class="fade-in"><div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4"><h3 class="text-lg font-bold">🔌 Equipment Monitoring</h3><div class="flex items-center gap-2"><span class="flex items-center gap-2 text-sm text-green-500"><span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Auto-refresh (10s)</span>${STATE.currentUser?.role==='admin'?`<button onclick="openAddEquipmentModal()" class="px-3 py-2 bg-green-600 text-white rounded text-sm justify-center hover:bg-green-700">+ Add Device</button>`:''}<button onclick="simulateReadings()" class="px-3 py-2 bg-blue-600 text-white rounded text-sm justify-center hover:bg-blue-700">⚡ Simulate Readings</button></div></div>
@@ -1030,6 +1089,7 @@
         // Initialize
         initTheme();
         setInterval(() => { STATE.equipment.forEach(eq => { if(eq.type==='Chiller') eq.temp=parseFloat((2+Math.random()*3).toFixed(1)); if(eq.type==='Scale') eq.weight=parseFloat((Math.random()*5).toFixed(2)); if(eq.type==='Printer') eq.paper=Math.max(10, eq.paper-Math.floor(Math.random()*2)); }); if(document.getElementById('equipment-grid')) { renderEquipmentGrid(); renderEquipmentHistory(); } }, 10000);
+        setInterval(() => { if (document.getElementById('report-result') && _reportParams) generateReport(); }, 30000);
     </script>
 </body>
 </html>
