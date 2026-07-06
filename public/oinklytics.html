@@ -989,13 +989,34 @@ function renderProducts(c) { const cats = STATE.categories?.map(cat=>`<option>${
             }, 100);
         }
 
-        function renderReports(c) { c.innerHTML = `<div class="fade-in"><h3 class="text-lg font-bold mb-4">Reports</h3><div class="flex gap-2 mb-4"><button onclick="switchReportPeriod('daily', this)" class="px-4 py-2 bg-primary text-white rounded-lg text-sm">Daily Report</button><button onclick="switchReportPeriod('weekly', this)" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">Weekly Report</button><button onclick="switchReportPeriod('monthly', this)" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">Monthly Report</button></div><div id="report-period-label" class="text-sm text-muted mb-4"></div><div id="report-result" class="bg-card p-6 rounded-xl shadow-sm border border-theme"><p class="text-muted text-center py-12">Select a report period to view product performance.</p></div></div>`; switchReportPeriod('daily'); }
+        function renderReports(c) {
+            c.innerHTML = `<div class="fade-in"><h3 class="text-lg font-bold mb-4">Reports</h3>
+                <div class="flex gap-2 mb-3" id="report-period-tabs"><button onclick="switchReportPeriod('daily', this)" class="px-4 py-2 bg-primary text-white rounded-lg text-sm">Daily Report</button><button onclick="switchReportPeriod('weekly', this)" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">Weekly Report</button><button onclick="switchReportPeriod('monthly', this)" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">Monthly Report</button></div>
+                <div class="flex gap-2 mb-3 overflow-x-auto scrollbar-hide" id="report-subtabs"><button onclick="switchReportTab('daily_sales', this)" class="px-3 py-1.5 bg-primary text-white rounded text-sm whitespace-nowrap">Daily Sales</button><button onclick="switchReportTab('stock', this)" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 rounded text-sm whitespace-nowrap">Stock Balance</button><button onclick="switchReportTab('batch', this)" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 rounded text-sm whitespace-nowrap">Batch Origin</button><button onclick="switchReportTab('customers', this)" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 rounded text-sm whitespace-nowrap">Customer Loyalty</button><button onclick="switchReportTab('wastage', this)" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 rounded text-sm whitespace-nowrap">Wastage</button><button onclick="switchReportTab('shift_close', this)" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 rounded text-sm whitespace-nowrap">Shift Close</button></div>
+                <div id="report-period-label" class="text-sm text-muted mb-3"></div>
+                <div id="report-result" class="bg-card p-6 rounded-xl shadow-sm border border-theme"><p class="text-muted text-center py-12">Select a period and report type.</p></div></div>`;
+            switchReportPeriod('daily');
+        }
 
         let _reportPeriod = 'daily';
-        async function switchReportPeriod(period, btn) {
+        let _reportTab = 'daily_sales';
+        function getReportDates(period) {
+            const now = new Date();
+            let from, to = now.toISOString().slice(0, 10);
+            if (period === 'daily') {
+                from = to;
+            } else if (period === 'weekly') {
+                const d = new Date(now); d.setDate(d.getDate() - d.getDay());
+                from = d.toISOString().slice(0, 10);
+            } else {
+                from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+            }
+            return { from, to };
+        }
+        function switchReportPeriod(period, btn) {
             _reportPeriod = period;
             if (btn) {
-                document.querySelectorAll('#main-content .flex.gap-2.mb-4 button').forEach(b => {
+                document.querySelectorAll('#report-period-tabs button').forEach(b => {
                     b.classList.remove('bg-primary', 'text-white');
                     b.classList.add('bg-gray-200', 'dark:bg-gray-700');
                 });
@@ -1003,35 +1024,62 @@ function renderProducts(c) { const cats = STATE.categories?.map(cat=>`<option>${
                 btn.classList.add('bg-primary', 'text-white');
             }
             const now = new Date();
-            let from, label;
-            if (period === 'daily') {
-                from = now.toISOString().slice(0, 10);
-                label = 'Today — ' + now.toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            } else if (period === 'weekly') {
-                const d = new Date(now); d.setDate(d.getDate() - d.getDay());
-                from = d.toISOString().slice(0, 10);
-                label = 'Week of ' + d.toLocaleDateString('en-KE', { month: 'long', day: 'numeric' }) + ' — ' + now.toLocaleDateString('en-KE', { month: 'long', day: 'numeric', year: 'numeric' });
-            } else {
-                from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-                label = now.toLocaleDateString('en-KE', { month: 'long', year: 'numeric' });
-            }
-            const to = now.toISOString().slice(0, 10);
+            const { from, to } = getReportDates(period);
+            let label = '';
+            if (period === 'daily') label = 'Today — ' + now.toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            else if (period === 'weekly') { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); label = 'Week of ' + d.toLocaleDateString('en-KE', { month: 'long', day: 'numeric' }) + ' — ' + now.toLocaleDateString('en-KE', { month: 'long', day: 'numeric', year: 'numeric' }); }
+            else label = now.toLocaleDateString('en-KE', { month: 'long', year: 'numeric' });
             document.getElementById('report-period-label').textContent = label;
+            loadReport();
+        }
+        function switchReportTab(tab, btn) {
+            _reportTab = tab;
+            document.querySelectorAll('#report-subtabs button').forEach(b => {
+                b.classList.remove('bg-primary', 'text-white');
+                b.classList.add('bg-gray-200', 'dark:bg-gray-700');
+            });
+            if (btn) { btn.classList.remove('bg-gray-200', 'dark:bg-gray-700'); btn.classList.add('bg-primary', 'text-white'); }
+            loadReport();
+        }
+        async function loadReport() {
+            const { from, to } = getReportDates(_reportPeriod);
             const div = document.getElementById('report-result');
             div.innerHTML = '<p class="text-muted text-center py-12">Loading...</p>';
             try {
-                const data = await apiGet(`reports&type=product_sales&from=${from}&to=${to}`);
-                if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No sales data for this period.</p>'; return; }
-                const totalQty = data.reduce((s, r) => s + r.qty, 0);
-                const totalRev = data.reduce((s, r) => s + parseFloat(r.revenue), 0);
-                const totalOrders = data.reduce((s, r) => s + r.orders, 0);
-                div.innerHTML = `
-                    <div class="grid grid-cols-3 gap-4 mb-4">
-                        <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center"><p class="text-xs text-muted">Products Sold</p><p class="text-xl font-bold">${data.length}</p></div>
-                        <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center"><p class="text-xs text-muted">Total Qty</p><p class="text-xl font-bold">${totalQty}</p></div>
-                        <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center"><p class="text-xs text-muted">Total Revenue</p><p class="text-xl font-bold text-green-600">KES ${totalRev.toLocaleString()}</p></div>
-                    </div>
-                    <div class="overflow-x-auto"><table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">Product</th><th class="p-3">Name</th><th class="p-3">Qty Sold</th><th class="p-3">Orders</th><th class="p-3">Revenue</th><th class="p-3">% of Sales</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3 font-mono">${r.product}</td><td class="p-3">${r.name}</td><td class="p-3">${r.qty}</td><td class="p-3">${r.orders}</td><td class="p-3">KES ${parseFloat(r.revenue).toLocaleString()}</td><td class="p-3">${totalRev ? (parseFloat(r.revenue) / totalRev * 100).toFixed(1) : 0}%</td></tr>`).join('')}</tbody></table></div>`;
+                let data, html = '';
+                switch (_reportTab) {
+                    case 'daily_sales':
+                        data = await apiGet(`reports&type=daily_sales&from=${from}&to=${to}`);
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No sales data for this period.</p>'; return; }
+                        html = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">Date</th><th class="p-3">Transactions</th><th class="p-3">Cash</th><th class="p-3">M-Pesa</th><th class="p-3">Total</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3">${r.date}</td><td class="p-3">${r.transactions}</td><td class="p-3">KES ${parseFloat(r.cash).toLocaleString()}</td><td class="p-3">KES ${parseFloat(r.mpesa).toLocaleString()}</td><td class="p-3 font-bold">KES ${parseFloat(r.total).toLocaleString()}</td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    case 'stock':
+                        data = await apiGet('reports&type=stock');
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No products found.</p>'; return; }
+                        html = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">Code</th><th class="p-3">Name</th><th class="p-3">Category</th><th class="p-3">Stock</th><th class="p-3">Unit</th><th class="p-3">Price</th><th class="p-3">Status</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3 font-mono">${r.code}</td><td class="p-3">${r.name}</td><td class="p-3">${r.category}</td><td class="p-3">${r.stock}</td><td class="p-3">${r.unit}</td><td class="p-3">KES ${parseFloat(r.price).toLocaleString()}</td><td class="p-3"><span class="px-2 py-0.5 ${r.status==='Active'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'} rounded text-xs">${r.status}</span></td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    case 'batch':
+                        data = await apiGet(`reports&type=batch&from=${from}&to=${to}`);
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No batches for this period.</p>'; return; }
+                        html = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">ID</th><th class="p-3">Source</th><th class="p-3">Weight</th><th class="p-3">Current</th><th class="p-3">Cost/Kg</th><th class="p-3">Use By</th><th class="p-3">Status</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3 font-mono">${r.id}</td><td class="p-3">${r.source}</td><td class="p-3">${r.weight}kg</td><td class="p-3">${r.current_weight??r.currentWeight}kg</td><td class="p-3">KES ${parseFloat(r.cost_per_kg??r.costPerKg).toLocaleString()}</td><td class="p-3">${r.use_by??r.useBy}</td><td class="p-3"><span class="px-2 py-0.5 ${r.status==='Active'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'} rounded text-xs">${r.status}</span></td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    case 'customers':
+                        data = await apiGet('reports&type=customers');
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No customers found.</p>'; return; }
+                        html = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">Name</th><th class="p-3">Phone</th><th class="p-3">Type</th><th class="p-3">Area</th><th class="p-3">Points</th><th class="p-3">Total Spent</th><th class="p-3">Last Visit</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3">${r.name}</td><td class="p-3">${r.phone}</td><td class="p-3">${r.type}</td><td class="p-3">${r.area}</td><td class="p-3">${r.points}</td><td class="p-3">KES ${parseFloat(r.spent).toLocaleString()}</td><td class="p-3">${r.lastVisit}</td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    case 'wastage':
+                        data = await apiGet(`reports&type=wastage&from=${from}&to=${to}`);
+                        if (!data || data.length === 0) { div.innerHTML = '<p class="text-muted text-center py-12">No wastage for this period.</p>'; return; }
+                        html = `<table class="w-full text-left"><thead class="text-sm bg-gray-50 dark:bg-gray-800"><tr><th class="p-3">Date</th><th class="p-3">Product</th><th class="p-3">Qty</th><th class="p-3">Reason</th><th class="p-3">Supervisor</th><th class="p-3">Status</th></tr></thead><tbody class="divide-y divide-theme text-sm">${data.map(r => `<tr><td class="p-3">${r.date}</td><td class="p-3">${r.product}</td><td class="p-3">${r.qty}kg</td><td class="p-3">${r.reason}</td><td class="p-3">${r.supervisor||'-'}</td><td class="p-3"><span class="px-2 py-0.5 ${r.status==='Approved'?'bg-green-100 text-green-700':'bg-orange-100 text-orange-700'} rounded text-xs">${r.status}</span></td></tr>`).join('')}</tbody></table>`;
+                        break;
+                    case 'shift_close':
+                        const dash = await apiGet('dashboard');
+                        if (!dash) { div.innerHTML = '<p class="text-muted text-center py-12">No data available.</p>'; return; }
+                        html = `<div class="space-y-4"><div class="grid grid-cols-2 gap-4"><div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"><p class="text-xs text-muted">Total Sales Today</p><p class="text-xl font-bold">KES ${parseFloat(dash.todaySales||0).toLocaleString()}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"><p class="text-xs text-muted">Transactions</p><p class="text-xl font-bold">${dash.transactions||0}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"><p class="text-xs text-muted">Cash Payments</p><p class="text-xl font-bold text-green-600">KES ${parseFloat(dash.cashSales||0).toLocaleString()}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"><p class="text-xs text-muted">M-Pesa Payments</p><p class="text-xl font-bold text-blue-600">KES ${parseFloat(dash.mpesaSales||0).toLocaleString()}</p></div></div><p class="text-xs text-muted text-center">Shift Close — ${new Date().toLocaleDateString()}</p></div>`;
+                        break;
+                }
+                div.innerHTML = html;
             } catch (e) {
                 div.innerHTML = `<p class="text-red-500 text-center py-12">Error: ${e.message}</p>`;
             }
